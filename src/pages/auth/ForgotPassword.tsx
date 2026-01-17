@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,16 +9,17 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader2, TrendingUp, ArrowLeft, Mail } from 'lucide-react';
 import { z } from 'zod';
 
-const emailSchema = z.object({
-  email: z.string().email('Email inválido'),
-});
-
 export default function ForgotPassword() {
   const { resetPassword } = useAuth();
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+
+  const emailSchema = z.object({
+    email: z.string().email(t('auth.invalidEmail')),
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,14 +56,14 @@ export default function ForgotPassword() {
               <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-4">
                 <Mail className="h-8 w-8 text-success" />
               </div>
-              <h2 className="text-xl font-semibold mb-2">Email enviado!</h2>
+              <h2 className="text-xl font-semibold mb-2">{t('auth.emailSent')}</h2>
               <p className="text-muted-foreground mb-6">
-                Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.
+                {t('auth.checkInbox')}
               </p>
               <Link to="/auth/login">
                 <Button variant="outline" className="w-full">
                   <ArrowLeft className="mr-2 h-4 w-4" />
-                  Voltar ao login
+                  {t('auth.backToLogin')}
                 </Button>
               </Link>
             </CardContent>
@@ -84,15 +86,15 @@ export default function ForgotPassword() {
 
         <Card className="glass border-border/50">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Recuperar Senha</CardTitle>
+            <CardTitle className="text-2xl">{t('auth.forgotPasswordTitle')}</CardTitle>
             <CardDescription>
-              Digite seu email para receber um link de recuperação
+              {t('auth.forgotPasswordSubtitle')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t('auth.email')}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -115,10 +117,10 @@ export default function ForgotPassword() {
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Enviando...
+                    {t('auth.sending')}
                   </>
                 ) : (
-                  'Enviar Link de Recuperação'
+                  t('auth.sendResetLink')
                 )}
               </Button>
             </form>
@@ -129,7 +131,7 @@ export default function ForgotPassword() {
               className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
             >
               <ArrowLeft className="h-4 w-4" />
-              Voltar ao login
+              {t('auth.backToLogin')}
             </Link>
           </CardFooter>
         </Card>

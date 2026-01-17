@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,11 +11,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { SignalCard } from '@/components/signals/SignalCard';
 import { useUserPlan } from '@/hooks/useUserPlan';
+import { LanguageSelector } from '@/components/LanguageSelector';
 import type { SignalWithPair, AllowedPair } from '@/types/database';
 import { format, subDays } from 'date-fns';
 
 export default function History() {
   const { user, signOut } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const { plan, limits, isFree, isBasic } = useUserPlan();
   
@@ -92,8 +95,10 @@ export default function History() {
   };
 
   const getHistoryLimitText = (): string => {
-    if (limits.historyDays === null) return 'Unlimited';
-    return `Last ${limits.historyDays} days`;
+    if (limits.historyDays === null) return t('history.unlimited');
+    if (limits.historyDays === 7) return t('history.last7Days');
+    if (limits.historyDays === 30) return t('history.last30Days');
+    return `${limits.historyDays} days`;
   };
 
   const SidebarContent = () => (
@@ -108,22 +113,23 @@ export default function History() {
       <nav className="space-y-2">
         <Link to="/dashboard" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <BarChart3 className="h-5 w-5" />
-          Dashboard
+          {t('nav.dashboard')}
         </Link>
         <Link to="/history" className="flex items-center gap-3 px-3 py-2 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground">
           <HistoryIcon className="h-5 w-5" />
-          History
+          {t('nav.history')}
         </Link>
         <Link to="/settings" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <Settings className="h-5 w-5" />
-          Settings
+          {t('nav.settings')}
         </Link>
       </nav>
 
-      <div className="absolute bottom-4 left-4 right-4">
+      <div className="absolute bottom-4 left-4 right-4 space-y-4">
+        <LanguageSelector />
         <Button variant="ghost" className="w-full justify-start" onClick={handleSignOut}>
           <LogOut className="h-5 w-5 mr-2" />
-          Sign Out
+          {t('nav.signOut')}
         </Button>
       </div>
     </>
@@ -161,8 +167,8 @@ export default function History() {
       <main className="md:ml-64 p-6 pt-20 md:pt-6">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Signal History</h1>
-            <p className="text-muted-foreground">View all generated signals</p>
+            <h1 className="text-2xl font-bold">{t('history.title')}</h1>
+            <p className="text-muted-foreground">{t('history.subtitle')}</p>
           </div>
           <Badge variant="outline" className="flex items-center gap-1">
             <Calendar className="h-3 w-3" />
@@ -179,16 +185,16 @@ export default function History() {
                   <Crown className="h-5 w-5 text-primary" />
                   <div>
                     <p className="font-medium">
-                      {isFree ? 'Free Plan: 7-day history' : 'Basic Plan: 30-day history'}
+                      {isFree ? t('history.freePlanHistory') : t('history.basicPlanHistory')}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {isFree ? 'Upgrade to Basic for 30 days or Pro for unlimited history' : 'Upgrade to Pro for unlimited history'}
+                      {isFree ? t('history.upgradeBasic30Days') : t('history.upgradePro')}
                     </p>
                   </div>
                 </div>
                 <Link to="/settings">
                   <Button size="sm" className="gradient-primary text-white">
-                    Upgrade
+                    {t('pricing.upgrade')}
                   </Button>
                 </Link>
               </div>
@@ -201,19 +207,19 @@ export default function History() {
           <Card className="glass border-border/50">
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold">{totalSignals}</p>
-              <p className="text-sm text-muted-foreground">Total</p>
+              <p className="text-sm text-muted-foreground">{t('history.total')}</p>
             </CardContent>
           </Card>
           <Card className="glass border-border/50">
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-success">{buySignals}</p>
-              <p className="text-sm text-muted-foreground">Buy</p>
+              <p className="text-sm text-muted-foreground">{t('history.buy')}</p>
             </CardContent>
           </Card>
           <Card className="glass border-border/50">
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-destructive">{sellSignals}</p>
-              <p className="text-sm text-muted-foreground">Sell</p>
+              <p className="text-sm text-muted-foreground">{t('history.sell')}</p>
             </CardContent>
           </Card>
         </div>
@@ -223,19 +229,19 @@ export default function History() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Filter className="h-5 w-5" />
-              Filters
+              {t('history.filters')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="text-sm text-muted-foreground mb-2 block">Pair</label>
+                <label className="text-sm text-muted-foreground mb-2 block">{t('dashboard.pair')}</label>
                 <Select value={filterPair} onValueChange={setFilterPair}>
                   <SelectTrigger className="bg-background/50">
-                    <SelectValue placeholder="All pairs" />
+                    <SelectValue placeholder={t('history.allPairs')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All pairs</SelectItem>
+                    <SelectItem value="all">{t('history.allPairs')}</SelectItem>
                     {pairs.map((pair) => (
                       <SelectItem key={pair.id} value={pair.id}>
                         {pair.symbol}
@@ -246,27 +252,27 @@ export default function History() {
               </div>
               
               <div>
-                <label className="text-sm text-muted-foreground mb-2 block">Direction</label>
+                <label className="text-sm text-muted-foreground mb-2 block">{t('history.direction')}</label>
                 <Select value={filterDirection} onValueChange={setFilterDirection}>
                   <SelectTrigger className="bg-background/50">
-                    <SelectValue placeholder="All" />
+                    <SelectValue placeholder={t('history.allDirections')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="LONG">Buy</SelectItem>
-                    <SelectItem value="SHORT">Sell</SelectItem>
+                    <SelectItem value="all">{t('history.allDirections')}</SelectItem>
+                    <SelectItem value="LONG">{t('history.buy')}</SelectItem>
+                    <SelectItem value="SHORT">{t('history.sell')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <label className="text-sm text-muted-foreground mb-2 block">Timeframe</label>
+                <label className="text-sm text-muted-foreground mb-2 block">{t('history.timeframe')}</label>
                 <Select value={filterTimeframe} onValueChange={setFilterTimeframe}>
                   <SelectTrigger className="bg-background/50">
-                    <SelectValue placeholder="All" />
+                    <SelectValue placeholder={t('history.allTimeframes')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="all">{t('history.allTimeframes')}</SelectItem>
                     <SelectItem value="1H">1H</SelectItem>
                     <SelectItem value="4H">4H</SelectItem>
                   </SelectContent>
@@ -281,14 +287,14 @@ export default function History() {
           {loading ? (
             <Card className="glass border-border/50">
               <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">Loading signals...</p>
+                <p className="text-muted-foreground">{t('history.loading')}</p>
               </CardContent>
             </Card>
           ) : signals.length === 0 ? (
             <Card className="glass border-border/50">
               <CardContent className="py-12 text-center">
                 <HistoryIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No signals found with the selected filters.</p>
+                <p className="text-muted-foreground">{t('history.noSignals')}</p>
               </CardContent>
             </Card>
           ) : (

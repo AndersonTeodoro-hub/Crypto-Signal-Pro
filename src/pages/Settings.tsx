@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +12,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
 import { PLANS, type PlanType } from '@/lib/plans';
+import { LanguageSelector } from '@/components/LanguageSelector';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +27,7 @@ import {
 
 export default function Settings() {
   const { user, signOut } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
@@ -41,19 +44,19 @@ export default function Settings() {
 
     if (success === 'true') {
       toast({
-        title: '🎉 Payment Successful!',
-        description: 'Your plan has been upgraded. Enjoy your new features!',
+        title: `🎉 ${t('settings.paymentSuccess')}`,
+        description: t('settings.paymentSuccessDescription'),
       });
       // Reload plan after successful payment
       setTimeout(() => loadUserPlan(), 1000);
     } else if (canceled === 'true') {
       toast({
-        title: 'Payment Canceled',
-        description: 'Your payment was canceled. No charges were made.',
+        title: t('settings.paymentCanceled'),
+        description: t('settings.paymentCanceledDescription'),
         variant: 'destructive',
       });
     }
-  }, [searchParams, toast]);
+  }, [searchParams, toast, t]);
 
   const loadUserPlan = async () => {
     if (!user) return;
@@ -89,8 +92,8 @@ export default function Settings() {
   const handleDeleteAccount = async () => {
     setDeleting(true);
     toast({
-      title: 'Account deleted',
-      description: 'Your account has been successfully removed.',
+      title: t('settings.accountDeleted'),
+      description: t('settings.accountDeletedDescription'),
     });
     await signOut();
     navigate('/');
@@ -104,8 +107,8 @@ export default function Settings() {
       
       if (!session) {
         toast({
-          title: 'Not authenticated',
-          description: 'Please log in to upgrade your plan.',
+          title: t('settings.notAuthenticated'),
+          description: t('settings.pleaseLogin'),
           variant: 'destructive',
         });
         return;
@@ -134,7 +137,7 @@ export default function Settings() {
     } catch (error) {
       console.error('Checkout error:', error);
       toast({
-        title: 'Checkout Error',
+        title: t('settings.checkoutError'),
         description: error instanceof Error ? error.message : 'Failed to start checkout',
         variant: 'destructive',
       });
@@ -158,22 +161,23 @@ export default function Settings() {
       <nav className="space-y-2">
         <Link to="/dashboard" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <BarChart3 className="h-5 w-5" />
-          Dashboard
+          {t('nav.dashboard')}
         </Link>
         <Link to="/history" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <History className="h-5 w-5" />
-          History
+          {t('nav.history')}
         </Link>
         <Link to="/settings" className="flex items-center gap-3 px-3 py-2 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground">
           <SettingsIcon className="h-5 w-5" />
-          Settings
+          {t('nav.settings')}
         </Link>
       </nav>
 
-      <div className="absolute bottom-4 left-4 right-4">
+      <div className="absolute bottom-4 left-4 right-4 space-y-4">
+        <LanguageSelector />
         <Button variant="ghost" className="w-full justify-start" onClick={handleSignOut}>
           <LogOut className="h-5 w-5 mr-2" />
-          Sign Out
+          {t('nav.signOut')}
         </Button>
       </div>
     </>
@@ -210,8 +214,8 @@ export default function Settings() {
       {/* Main Content */}
       <main className="md:ml-64 p-6 pt-20 md:pt-6">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold">Settings</h1>
-          <p className="text-muted-foreground">Manage your account and preferences</p>
+          <h1 className="text-2xl font-bold">{t('settings.title')}</h1>
+          <p className="text-muted-foreground">{t('settings.subtitle')}</p>
         </div>
 
         <div className="space-y-6 max-w-2xl">
@@ -223,18 +227,18 @@ export default function Settings() {
                   <User className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <CardTitle>Account</CardTitle>
-                  <CardDescription>Your account information</CardDescription>
+                  <CardTitle>{t('settings.account')}</CardTitle>
+                  <CardDescription>{t('settings.accountInfo')}</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label className="text-muted-foreground">Email</Label>
+                <Label className="text-muted-foreground">{t('settings.email')}</Label>
                 <Input value={user?.email || ''} disabled className="mt-1 bg-background/50" />
               </div>
               <div>
-                <Label className="text-muted-foreground">Current Plan</Label>
+                <Label className="text-muted-foreground">{t('settings.currentPlan')}</Label>
                 <div className="mt-2 flex items-center gap-3">
                   <div className="flex items-center gap-2">
                     {userPlan === 'pro' && <Crown className="h-5 w-5 text-yellow-500" />}
@@ -260,7 +264,7 @@ export default function Settings() {
                         ) : (
                           <Zap className="h-4 w-4" />
                         )}
-                        Upgrade to Basic - $39/mo
+                        {t('settings.upgradeToBasic')}
                       </Button>
                       <Button 
                         size="sm" 
@@ -273,7 +277,7 @@ export default function Settings() {
                         ) : (
                           <Crown className="h-4 w-4" />
                         )}
-                        Go Pro - $99/mo
+                        {t('settings.goPro')}
                       </Button>
                     </>
                   )}
@@ -289,13 +293,13 @@ export default function Settings() {
                       ) : (
                         <Crown className="h-4 w-4" />
                       )}
-                      Upgrade to Pro - $99/mo
+                      {t('settings.upgradeToPro')}
                     </Button>
                   )}
                   {userPlan === 'pro' && (
                     <div className="flex items-center gap-2 text-success">
                       <Crown className="h-5 w-5" />
-                      <span className="font-medium">You're on the best plan!</span>
+                      <span className="font-medium">{t('settings.youreOnBestPlan')}</span>
                     </div>
                   )}
                 </div>
@@ -311,16 +315,16 @@ export default function Settings() {
                   <Bell className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <CardTitle>Preferences</CardTitle>
-                  <CardDescription>Customize your experience</CardDescription>
+                  <CardTitle>{t('settings.preferences')}</CardTitle>
+                  <CardDescription>{t('settings.customizeExperience')}</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>Signal Notifications</Label>
-                  <p className="text-sm text-muted-foreground">Receive alerts when new signals are generated</p>
+                  <Label>{t('settings.notifications')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('settings.notificationsDescription')}</p>
                 </div>
                 <Switch 
                   checked={notificationsEnabled} 
@@ -338,35 +342,34 @@ export default function Settings() {
                   <AlertTriangle className="h-5 w-5 text-destructive" />
                 </div>
                 <div>
-                  <CardTitle className="text-destructive">Danger Zone</CardTitle>
-                  <CardDescription>Irreversible actions</CardDescription>
+                  <CardTitle className="text-destructive">{t('settings.dangerZone')}</CardTitle>
+                  <CardDescription>{t('settings.irreversibleActions')}</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">Delete Account</p>
-                  <p className="text-sm text-muted-foreground">Permanently remove your account and all data</p>
+                  <p className="font-medium">{t('settings.deleteAccount')}</p>
+                  <p className="text-sm text-muted-foreground">{t('settings.deleteAccountDescription')}</p>
                 </div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" size="sm">
-                      Delete
+                      {t('common.delete')}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogTitle>{t('settings.deleteConfirmTitle')}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete your account
-                        and remove all your data from our servers.
+                        {t('settings.deleteConfirmDescription')}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                       <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                        {deleting ? 'Deleting...' : 'Yes, delete account'}
+                        {deleting ? t('settings.deleting') : t('settings.yesDeleteAccount')}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>

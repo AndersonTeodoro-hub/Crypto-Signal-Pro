@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,10 +13,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useUserPlan } from '@/hooks/useUserPlan';
 import { Badge } from '@/components/ui/badge';
+import { LanguageSelector } from '@/components/LanguageSelector';
 import type { SignalWithPair, UserSettings } from '@/types/database';
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { plan, loading: planLoading, canAccessTimeframe, limits, isFree } = useUserPlan();
@@ -131,8 +134,8 @@ export default function Dashboard() {
           if (data && data.timeframe === timeframe) {
             setSignals((prev) => [data as SignalWithPair, ...prev]);
             toast({
-              title: '🚀 New Signal!',
-              description: `${(data as SignalWithPair).allowed_pairs?.symbol} - ${data.direction === 'LONG' ? 'BUY' : 'SELL'}`,
+              title: `🚀 ${t('dashboard.newSignal')}`,
+              description: `${(data as SignalWithPair).allowed_pairs?.symbol} - ${data.direction === 'LONG' ? t('signal.buy') : t('signal.sell')}`,
             });
           }
         }
@@ -142,7 +145,7 @@ export default function Dashboard() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedPair, timeframe, toast]);
+  }, [selectedPair, timeframe, toast, t]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -154,8 +157,8 @@ export default function Dashboard() {
       setTimeframe(value);
     } else {
       toast({
-        title: 'Upgrade Required',
-        description: '1H timeframe is available on Basic and Pro plans.',
+        title: t('dashboard.upgradeRequired'),
+        description: t('dashboard.upgradeRequired1H'),
         variant: 'destructive',
       });
     }
@@ -173,22 +176,23 @@ export default function Dashboard() {
       <nav className="space-y-2">
         <Link to="/dashboard" className="flex items-center gap-3 px-3 py-2 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground">
           <BarChart3 className="h-5 w-5" />
-          Dashboard
+          {t('nav.dashboard')}
         </Link>
         <Link to="/history" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <History className="h-5 w-5" />
-          History
+          {t('nav.history')}
         </Link>
         <Link to="/settings" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <Settings className="h-5 w-5" />
-          Settings
+          {t('nav.settings')}
         </Link>
       </nav>
 
-      <div className="absolute bottom-4 left-4 right-4">
+      <div className="absolute bottom-4 left-4 right-4 space-y-4">
+        <LanguageSelector />
         <Button variant="ghost" className="w-full justify-start" onClick={handleSignOut}>
           <LogOut className="h-5 w-5 mr-2" />
-          Sign Out
+          {t('nav.signOut')}
         </Button>
       </div>
     </>
@@ -226,11 +230,11 @@ export default function Dashboard() {
       <main className="md:ml-64 p-6 pt-20 md:pt-6">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Welcome back!</h1>
+            <h1 className="text-2xl font-bold">{t('dashboard.welcome')}</h1>
             <p className="text-muted-foreground">{user?.email}</p>
           </div>
           <Badge variant="outline" className="capitalize">
-            {plan} Plan
+            {plan} {t('dashboard.plan')}
           </Badge>
         </div>
 
@@ -242,13 +246,13 @@ export default function Dashboard() {
                 <div className="flex items-center gap-3">
                   <Crown className="h-5 w-5 text-primary" />
                   <div>
-                    <p className="font-medium">Free Plan: 1 pair, 4H timeframe only</p>
-                    <p className="text-sm text-muted-foreground">Upgrade to unlock more pairs and 1H timeframe</p>
+                    <p className="font-medium">{t('dashboard.freePlanLimit')}</p>
+                    <p className="text-sm text-muted-foreground">{t('dashboard.upgradeToUnlock')}</p>
                   </div>
                 </div>
                 <Link to="/settings">
                   <Button size="sm" className="gradient-primary text-white">
-                    Upgrade
+                    {t('pricing.upgrade')}
                   </Button>
                 </Link>
               </div>
@@ -259,14 +263,14 @@ export default function Dashboard() {
         {/* Configuration Card */}
         <Card className="glass border-border/50 mb-6">
           <CardHeader>
-            <CardTitle>Configuration</CardTitle>
+            <CardTitle>{t('dashboard.configuration')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm text-muted-foreground mb-2 block">
-                  Cryptocurrency Pair
-                  {isFree && <span className="text-xs ml-2">(1 pair limit)</span>}
+                  {t('dashboard.pair')}
+                  {isFree && <span className="text-xs ml-2">{t('dashboard.pairLimit')}</span>}
                 </label>
                 <PairSelector 
                   value={selectedPair} 
@@ -275,7 +279,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <label className="text-sm text-muted-foreground mb-2 block">
-                  Timeframe
+                  {t('dashboard.timeframe')}
                 </label>
                 <Tabs value={timeframe} onValueChange={handleTimeframeChange}>
                   <TabsList className="w-full">
@@ -299,14 +303,14 @@ export default function Dashboard() {
 
         {/* Signals List */}
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Your Signals</h2>
+          <h2 className="text-xl font-semibold">{t('dashboard.signals')}</h2>
           
           {!selectedPair ? (
             <Card className="glass border-border/50">
               <CardContent className="py-12">
                 <div className="text-center">
                   <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Select a pair to view signals.</p>
+                  <p className="text-muted-foreground">{t('dashboard.selectPair')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -315,8 +319,8 @@ export default function Dashboard() {
               <CardContent className="py-12">
                 <div className="text-center">
                   <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No signals available for this pair.</p>
-                  <p className="text-sm text-muted-foreground">New signals will appear here in real-time.</p>
+                  <p className="text-muted-foreground">{t('dashboard.noSignals')}</p>
+                  <p className="text-sm text-muted-foreground">{t('dashboard.newSignalsRealtime')}</p>
                 </div>
               </CardContent>
             </Card>

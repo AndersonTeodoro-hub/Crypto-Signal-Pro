@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { TrendingUp, LogOut, Settings, BarChart3, History, Menu, Play, Clock, Ch
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { LanguageSelector } from '@/components/LanguageSelector';
 
 interface GenerationResult {
   timeframe: string;
@@ -26,6 +28,7 @@ interface GenerationResult {
 
 export default function Admin() {
   const { user, signOut } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -48,8 +51,8 @@ export default function Admin() {
       if (!sessionData.session) {
         toast({
           variant: 'destructive',
-          title: 'Erro',
-          description: 'Sessão expirada. Faça login novamente.',
+          title: t('common.error'),
+          description: t('admin.sessionExpired'),
         });
         return;
       }
@@ -74,12 +77,12 @@ export default function Admin() {
       }, ...prev.slice(0, 9)]);
 
       toast({
-        title: '✅ Geração Concluída',
-        description: `${result.signalsCreated} sinais criados de ${result.processed} pares analisados.`,
+        title: `✅ ${t('admin.generationComplete')}`,
+        description: t('admin.signalsCreated', { created: result.signalsCreated, processed: result.processed }),
       });
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       setHistory(prev => [{
         timeframe,
@@ -93,7 +96,7 @@ export default function Admin() {
 
       toast({
         variant: 'destructive',
-        title: 'Erro na Geração',
+        title: t('admin.generationError'),
         description: errorMessage,
       });
     } finally {
@@ -113,26 +116,27 @@ export default function Admin() {
       <nav className="space-y-2">
         <Link to="/dashboard" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <BarChart3 className="h-5 w-5" />
-          Dashboard
+          {t('nav.dashboard')}
         </Link>
         <Link to="/history" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <History className="h-5 w-5" />
-          Histórico
+          {t('nav.history')}
         </Link>
         <Link to="/settings" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <Settings className="h-5 w-5" />
-          Configurações
+          {t('nav.settings')}
         </Link>
         <Link to="/admin" className="flex items-center gap-3 px-3 py-2 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground">
           <Shield className="h-5 w-5" />
-          Admin
+          {t('nav.admin')}
         </Link>
       </nav>
 
-      <div className="absolute bottom-4 left-4 right-4">
+      <div className="absolute bottom-4 left-4 right-4 space-y-4">
+        <LanguageSelector />
         <Button variant="ghost" className="w-full justify-start" onClick={handleSignOut}>
           <LogOut className="h-5 w-5 mr-2" />
-          Sair
+          {t('nav.signOut')}
         </Button>
       </div>
     </>
@@ -171,9 +175,9 @@ export default function Admin() {
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-2">
             <Shield className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold">Painel Admin</h1>
+            <h1 className="text-2xl font-bold">{t('admin.title')}</h1>
           </div>
-          <p className="text-muted-foreground">Gere sinais manualmente para teste</p>
+          <p className="text-muted-foreground">{t('admin.subtitle')}</p>
         </div>
 
         {/* Generation Buttons */}
@@ -182,10 +186,10 @@ export default function Admin() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                Timeframe 1H
+                {t('admin.timeframe1H')}
               </CardTitle>
               <CardDescription>
-                Gerar sinais para o timeframe de 1 hora
+                {t('admin.generateFor1H')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -197,12 +201,12 @@ export default function Admin() {
                 {generating1H ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Gerando...
+                    {t('admin.generating')}
                   </>
                 ) : (
                   <>
                     <Play className="h-4 w-4 mr-2" />
-                    Gerar Agora (1H)
+                    {t('admin.generateNow1H')}
                   </>
                 )}
               </Button>
@@ -213,10 +217,10 @@ export default function Admin() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                Timeframe 4H
+                {t('admin.timeframe4H')}
               </CardTitle>
               <CardDescription>
-                Gerar sinais para o timeframe de 4 horas
+                {t('admin.generateFor4H')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -228,12 +232,12 @@ export default function Admin() {
                 {generating4H ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Gerando...
+                    {t('admin.generating')}
                   </>
                 ) : (
                   <>
                     <Play className="h-4 w-4 mr-2" />
-                    Gerar Agora (4H)
+                    {t('admin.generateNow4H')}
                   </>
                 )}
               </Button>
@@ -244,15 +248,15 @@ export default function Admin() {
         {/* History */}
         <Card className="glass border-border/50">
           <CardHeader>
-            <CardTitle>Histórico de Execuções</CardTitle>
+            <CardTitle>{t('admin.history')}</CardTitle>
             <CardDescription>
-              Últimas 10 execuções do gerador de sinais
+              {t('admin.historyDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {history.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                Nenhuma execução ainda. Clique em um dos botões acima.
+                {t('admin.noExecutions')}
               </div>
             ) : (
               <ScrollArea className="h-[400px]">
@@ -276,7 +280,7 @@ export default function Admin() {
                           </div>
                           {item.success && (
                             <Badge variant="outline">
-                              {item.signalsCreated}/{item.processed} sinais
+                              {item.signalsCreated}/{item.processed} {t('admin.signals')}
                             </Badge>
                           )}
                         </div>
@@ -304,7 +308,7 @@ export default function Admin() {
                             ))}
                             {item.results.length > 5 && (
                               <p className="text-xs text-muted-foreground">
-                                ... e mais {item.results.length - 5} pares
+                                {t('admin.andMore', { count: item.results.length - 5 })}
                               </p>
                             )}
                           </div>
