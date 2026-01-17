@@ -41,6 +41,53 @@ export type Database = {
         }
         Relationships: []
       }
+      candles: {
+        Row: {
+          close: number
+          created_at: string | null
+          high: number
+          id: string
+          low: number
+          open: number
+          open_time: string
+          pair_id: string
+          timeframe: string
+          volume: number
+        }
+        Insert: {
+          close: number
+          created_at?: string | null
+          high: number
+          id?: string
+          low: number
+          open: number
+          open_time: string
+          pair_id: string
+          timeframe: string
+          volume: number
+        }
+        Update: {
+          close?: number
+          created_at?: string | null
+          high?: number
+          id?: string
+          low?: number
+          open?: number
+          open_time?: string
+          pair_id?: string
+          timeframe?: string
+          volume?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candles_pair_id_fkey"
+            columns: ["pair_id"]
+            isOneToOne: false
+            referencedRelation: "allowed_pairs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -71,13 +118,16 @@ export type Database = {
       signals: {
         Row: {
           analysis: string | null
+          confidence: number | null
           created_at: string
           direction: string
           entry_price: number
           expires_at: string | null
           grade: string
           id: string
+          meta: Json | null
           pair_id: string
+          setup: string | null
           status: string
           stop_loss: number
           take_profit_1: number
@@ -87,13 +137,16 @@ export type Database = {
         }
         Insert: {
           analysis?: string | null
+          confidence?: number | null
           created_at?: string
           direction: string
           entry_price: number
           expires_at?: string | null
           grade: string
           id?: string
+          meta?: Json | null
           pair_id: string
+          setup?: string | null
           status?: string
           stop_loss: number
           take_profit_1: number
@@ -103,13 +156,16 @@ export type Database = {
         }
         Update: {
           analysis?: string | null
+          confidence?: number | null
           created_at?: string
           direction?: string
           entry_price?: number
           expires_at?: string | null
           grade?: string
           id?: string
+          meta?: Json | null
           pair_id?: string
+          setup?: string | null
           status?: string
           stop_loss?: number
           take_profit_1?: number
