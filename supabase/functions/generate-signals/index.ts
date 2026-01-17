@@ -450,6 +450,169 @@ function getGrade(confidence: number): 'A+' | 'A' | 'B+' | 'B' {
   return 'B'
 }
 
+// ============= AI CONFIRMATION =============
+
+interface AIConfirmation {
+  confirmed: boolean
+  confidence_adjustment: number
+  analysis: string
+  risk_notes: string
+}
+
+const AI_SYSTEM_PROMPT = `Você é um analista de trading especializado em Smart Money Concepts (SMC) e Price Action.
+
+Sua função é analisar setups de trading detectados algoritmicamente e:
+1. CONFIRMAR ou REJEITAR o setup baseado no contexto de mercado
+2. AJUSTAR o score de confiança (-20 a +20 pontos)
+3. GERAR uma análise concisa e profissional em português
+4. IDENTIFICAR riscos específicos do setup
+
+Critérios de validação:
+- Tendência alinhada com a direção do sinal
+- Estrutura de mercado clara (Higher Highs/Higher Lows ou vice-versa)
+- Volume confirmatório
+- RSI não em extremos contrários
+- Distância adequada entre entry e SL (mínimo 0.5%, máximo 2%)
+- Risk/Reward mínimo de 1:1.5
+
+SEJA RIGOROSO: Rejeite setups fracos ou com baixa probabilidade.`
+
+async function confirmWithAI(
+  pair: string,
+  timeframe: string,
+  setup: SignalSetup,
+  candles: Candle[],
+  ema50Value: number,
+  ema200Value: number,
+  rsiValue: number,
+  trend: string
+): Promise<AIConfirmation | null> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
+  
+  if (!LOVABLE_API_KEY) {
+    console.log('LOVABLE_API_KEY not configured, skipping AI confirmation')
+    return null
+  }
+  
+  try {
+    // Create candles summary (last 20 candles for context)
+    const recentCandles = candles.slice(-20)
+    const candlesSummary = recentCandles.map((c, i) => {
+      const change = ((c.close - c.open) / c.open * 100).toFixed(2)
+      const direction = c.close >= c.open ? '🟢' : '🔴'
+      return `${i + 1}. ${direction} O:${c.open.toFixed(2)} H:${c.high.toFixed(2)} L:${c.low.toFixed(2)} C:${c.close.toFixed(2)} (${change}%)`
+    }).join('\n')
+    
+    const lastPrice = candles[candles.length - 1].close
+    const riskPercent = setup.direction === 'LONG' 
+      ? ((setup.entry - setup.stopLoss) / setup.entry * 100).toFixed(2)
+      : ((setup.stopLoss - setup.entry) / setup.entry * 100).toFixed(2)
+    
+    const rrRatio = ((setup.takeProfit1 - setup.entry) / (setup.entry - setup.stopLoss)).toFixed(2)
+    
+    const userPrompt = `Analise este setup de trading:
+
+**Par:** ${pair}
+**Timeframe:** ${timeframe}
+**Setup Detectado:** ${setup.setup}
+**Direção:** ${setup.direction}
+**Confiança Atual:** ${setup.confidence}%
+
+**Níveis:**
+- Preço Atual: ${lastPrice.toFixed(2)}
+- Entry: ${setup.entry.toFixed(2)}
+- Stop Loss: ${setup.stopLoss.toFixed(2)} (Risco: ${riskPercent}%)
+- TP1: ${setup.takeProfit1.toFixed(2)} | TP2: ${setup.takeProfit2.toFixed(2)} | TP3: ${setup.takeProfit3.toFixed(2)}
+- Risk/Reward: 1:${rrRatio}
+
+**Indicadores:**
+- EMA 50: ${ema50Value.toFixed(2)}
+- EMA 200: ${ema200Value.toFixed(2)}
+- RSI (14): ${rsiValue.toFixed(1)}
+- Tendência: ${trend.toUpperCase()}
+
+**Análise Algorítmica:**
+${setup.analysis}
+
+**Últimos 20 Candles:**
+${candlesSummary}
+
+Analise criticamente e use a função confirm_signal para responder.`
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-3-flash-preview',
+        messages: [
+          { role: 'system', content: AI_SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt }
+        ],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'confirm_signal',
+              description: 'Confirma ou rejeita o setup de trading analisado',
+              parameters: {
+                type: 'object',
+                properties: {
+                  confirmed: {
+                    type: 'boolean',
+                    description: 'true se o setup é válido e deve ser executado, false se deve ser rejeitado'
+                  },
+                  confidence_adjustment: {
+                    type: 'integer',
+                    description: 'Ajuste na confiança: -20 a +20 pontos. Positivo aumenta, negativo diminui'
+                  },
+                  analysis: {
+                    type: 'string',
+                    description: 'Análise profissional do setup em português (máximo 3 frases). Explique os pontos fortes e fracos.'
+                  },
+                  risk_notes: {
+                    type: 'string',
+                    description: 'Observações de risco específicas para este trade (níveis a monitorar, eventos, etc)'
+                  }
+                },
+                required: ['confirmed', 'confidence_adjustment', 'analysis', 'risk_notes'],
+                additionalProperties: false
+              }
+            }
+          }
+        ],
+        tool_choice: { type: 'function', function: { name: 'confirm_signal' } }
+      })
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`AI Gateway error: ${response.status} - ${errorText}`)
+      return null
+    }
+    
+    const data = await response.json()
+    
+    // Extract tool call response
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0]
+    if (!toolCall || toolCall.function.name !== 'confirm_signal') {
+      console.error('Unexpected AI response format:', JSON.stringify(data))
+      return null
+    }
+    
+    const args = JSON.parse(toolCall.function.arguments) as AIConfirmation
+    console.log(`AI Confirmation for ${pair}: confirmed=${args.confirmed}, adjustment=${args.confidence_adjustment}`)
+    
+    return args
+    
+  } catch (error) {
+    console.error('Error calling AI Gateway:', error)
+    return null
+  }
+}
+
 // ============= MAIN =============
 
 Deno.serve(async (req) => {
@@ -586,24 +749,74 @@ Deno.serve(async (req) => {
           const confluenceBonus = (validSetups.length - 1) * 10
           bestSetup.confidence = Math.min(100, bestSetup.confidence + confluenceBonus)
 
-          // Insert signal
+          // Get current indicator values for AI
+          const currentEma50 = ema50[candles.length - 1] || 0
+          const currentEma200 = ema200[candles.length - 1] || 0
+          const currentRsi = rsi[rsi.length - 1] || 50
+
+          // Confirm with AI (Gemini 3)
+          console.log(`Requesting AI confirmation for ${pair.symbol} ${bestSetup.setup}...`)
+          const aiConfirmation = await confirmWithAI(
+            pair.symbol,
+            timeframe,
+            bestSetup,
+            candles,
+            currentEma50,
+            currentEma200,
+            currentRsi,
+            trend
+          )
+
+          // Process AI response
+          let finalConfidence = bestSetup.confidence
+          let finalAnalysis = bestSetup.analysis + (confluenceBonus > 0 ? ` [Confluência: ${validSetups.length} setups]` : '')
+          let aiConfirmed = true
+          let riskNotes = ''
+
+          if (aiConfirmation) {
+            if (!aiConfirmation.confirmed) {
+              // AI rejected the setup
+              console.log(`AI REJECTED setup for ${pair.symbol}: ${aiConfirmation.analysis}`)
+              results.push({ 
+                pair: pair.symbol, 
+                error: `AI rejected: ${aiConfirmation.analysis}` 
+              })
+              continue // Skip to next pair
+            }
+
+            // AI confirmed - apply adjustments
+            aiConfirmed = true
+            finalConfidence = Math.min(100, Math.max(0, bestSetup.confidence + aiConfirmation.confidence_adjustment))
+            finalAnalysis = aiConfirmation.analysis
+            riskNotes = aiConfirmation.risk_notes
+            
+            console.log(`AI CONFIRMED ${pair.symbol}: adjustment=${aiConfirmation.confidence_adjustment}, new confidence=${finalConfidence}`)
+          }
+
+          // Insert signal with AI-enhanced data
           const { error: insertError } = await supabase
             .from('signals')
             .insert({
               pair_id: pair.id,
               timeframe,
               direction: bestSetup.direction,
-              grade: getGrade(bestSetup.confidence),
+              grade: getGrade(finalConfidence),
               entry_price: bestSetup.entry,
               stop_loss: bestSetup.stopLoss,
               take_profit_1: bestSetup.takeProfit1,
               take_profit_2: bestSetup.takeProfit2,
               take_profit_3: bestSetup.takeProfit3,
-              analysis: bestSetup.analysis + (confluenceBonus > 0 ? ` [Confluência: ${validSetups.length} setups]` : ''),
+              analysis: finalAnalysis,
               status: 'active',
               setup: bestSetup.setup,
-              confidence: bestSetup.confidence,
-              meta: bestSetup.meta,
+              confidence: finalConfidence,
+              meta: {
+                ...bestSetup.meta,
+                ai_confirmed: aiConfirmed,
+                risk_notes: riskNotes,
+                confluence_count: validSetups.length,
+                original_confidence: bestSetup.confidence - confluenceBonus
+              },
               expires_at: new Date(Date.now() + (timeframe === '1H' ? 4 : 16) * 60 * 60 * 1000).toISOString()
             })
 
@@ -617,7 +830,7 @@ Deno.serve(async (req) => {
               results.push({ pair: pair.symbol, error: insertError.message })
             }
           } else {
-            console.log(`Signal created for ${pair.symbol}: ${bestSetup.direction} (${bestSetup.setup})`)
+            console.log(`Signal created for ${pair.symbol}: ${bestSetup.direction} (${bestSetup.setup}) [AI ${aiConfirmed ? 'confirmed' : 'pending'}]`)
             results.push({ pair: pair.symbol, signal: bestSetup })
           }
         } else {
