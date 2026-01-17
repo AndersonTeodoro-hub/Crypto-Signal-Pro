@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   user: User | null;
@@ -19,7 +18,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -49,24 +47,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       
       if (error) {
-        let message = 'Erro ao fazer login';
-        if (error.message.includes('Invalid login credentials')) {
-          message = 'Email ou senha incorretos';
-        } else if (error.message.includes('Email not confirmed')) {
-          message = 'Por favor, confirme seu email antes de fazer login';
-        }
-        toast({
-          variant: 'destructive',
-          title: 'Erro no login',
-          description: message,
-        });
         return { error };
       }
       
-      toast({
-        title: 'Bem-vindo de volta!',
-        description: 'Login realizado com sucesso.',
-      });
       return { error: null };
     } catch (error) {
       return { error: error as Error };
@@ -86,24 +69,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       
       if (error) {
-        let message = 'Erro ao criar conta';
-        if (error.message.includes('already registered')) {
-          message = 'Este email já está cadastrado';
-        } else if (error.message.includes('Password')) {
-          message = 'A senha deve ter pelo menos 6 caracteres';
-        }
-        toast({
-          variant: 'destructive',
-          title: 'Erro no cadastro',
-          description: message,
-        });
         return { error };
       }
       
-      toast({
-        title: 'Conta criada!',
-        description: 'Sua conta foi criada com sucesso.',
-      });
       return { error: null };
     } catch (error) {
       return { error: error as Error };
@@ -112,10 +80,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    toast({
-      title: 'Até logo!',
-      description: 'Você foi desconectado.',
-    });
   };
 
   const resetPassword = async (email: string) => {
@@ -125,18 +89,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       
       if (error) {
-        toast({
-          variant: 'destructive',
-          title: 'Erro',
-          description: 'Erro ao enviar email de recuperação.',
-        });
         return { error };
       }
       
-      toast({
-        title: 'Email enviado!',
-        description: 'Verifique sua caixa de entrada.',
-      });
       return { error: null };
     } catch (error) {
       return { error: error as Error };
