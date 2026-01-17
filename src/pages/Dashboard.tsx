@@ -4,21 +4,24 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, LogOut, Settings, BarChart3, History, Menu } from 'lucide-react';
+import { TrendingUp, LogOut, Settings, BarChart3, History, Menu, Lock, Crown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PairSelector } from '@/components/signals/PairSelector';
 import { SignalCard } from '@/components/signals/SignalCard';
 import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useUserPlan } from '@/hooks/useUserPlan';
+import { Badge } from '@/components/ui/badge';
 import type { SignalWithPair, UserSettings } from '@/types/database';
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { plan, loading: planLoading, canAccessTimeframe, limits, isFree } = useUserPlan();
   
   const [selectedPair, setSelectedPair] = useState<string | null>(null);
-  const [timeframe, setTimeframe] = useState<string>('1H');
+  const [timeframe, setTimeframe] = useState<string>('4H');
   const [signals, setSignals] = useState<SignalWithPair[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -36,13 +39,21 @@ export default function Dashboard() {
 
       if (data) {
         setSelectedPair(data.selected_pair_id);
-        setTimeframe(data.timeframe);
+        // Ensure the timeframe is accessible for the user's plan
+        const savedTimeframe = data.timeframe;
+        if (canAccessTimeframe(savedTimeframe)) {
+          setTimeframe(savedTimeframe);
+        } else {
+          setTimeframe('4H'); // Default to 4H for free users
+        }
       }
       setLoading(false);
     }
 
-    loadSettings();
-  }, [user]);
+    if (!planLoading) {
+      loadSettings();
+    }
+  }, [user, planLoading, canAccessTimeframe]);
 
   // Save settings when changed
   useEffect(() => {
@@ -120,8 +131,8 @@ export default function Dashboard() {
           if (data && data.timeframe === timeframe) {
             setSignals((prev) => [data as SignalWithPair, ...prev]);
             toast({
-              title: '🚀 Novo Sinal!',
-              description: `${(data as SignalWithPair).allowed_pairs?.symbol} - ${data.direction === 'LONG' ? 'COMPRA' : 'VENDA'}`,
+              title: '🚀 New Signal!',
+              description: `${(data as SignalWithPair).allowed_pairs?.symbol} - ${data.direction === 'LONG' ? 'BUY' : 'SELL'}`,
             });
           }
         }
@@ -136,6 +147,18 @@ export default function Dashboard() {
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const handleTimeframeChange = (value: string) => {
+    if (canAccessTimeframe(value)) {
+      setTimeframe(value);
+    } else {
+      toast({
+        title: 'Upgrade Required',
+        description: '1H timeframe is available on Basic and Pro plans.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const SidebarContent = () => (
@@ -154,18 +177,18 @@ export default function Dashboard() {
         </Link>
         <Link to="/history" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <History className="h-5 w-5" />
-          Histórico
+          History
         </Link>
         <Link to="/settings" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <Settings className="h-5 w-5" />
-          Configurações
+          Settings
         </Link>
       </nav>
 
       <div className="absolute bottom-4 left-4 right-4">
         <Button variant="ghost" className="w-full justify-start" onClick={handleSignOut}>
           <LogOut className="h-5 w-5 mr-2" />
-          Sair
+          Sign Out
         </Button>
       </div>
     </>
@@ -201,31 +224,71 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="md:ml-64 p-6 pt-20 md:pt-6">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold">Bem-vindo de volta!</h1>
-          <p className="text-muted-foreground">{user?.email}</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Welcome back!</h1>
+            <p className="text-muted-foreground">{user?.email}</p>
+          </div>
+          <Badge variant="outline" className="capitalize">
+            {plan} Plan
+          </Badge>
         </div>
+
+        {/* Plan Limit Notice for Free Users */}
+        {isFree && (
+          <Card className="glass border-primary/30 mb-6">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Crown className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="font-medium">Free Plan: 1 pair, 4H timeframe only</p>
+                    <p className="text-sm text-muted-foreground">Upgrade to unlock more pairs and 1H timeframe</p>
+                  </div>
+                </div>
+                <Link to="/settings">
+                  <Button size="sm" className="gradient-primary text-white">
+                    Upgrade
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Configuration Card */}
         <Card className="glass border-border/50 mb-6">
           <CardHeader>
-            <CardTitle>Configuração</CardTitle>
+            <CardTitle>Configuration</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm text-muted-foreground mb-2 block">
-                  Par de Criptomoeda
+                  Cryptocurrency Pair
+                  {isFree && <span className="text-xs ml-2">(1 pair limit)</span>}
                 </label>
-                <PairSelector value={selectedPair} onValueChange={setSelectedPair} />
+                <PairSelector 
+                  value={selectedPair} 
+                  onValueChange={setSelectedPair}
+                />
               </div>
               <div>
                 <label className="text-sm text-muted-foreground mb-2 block">
                   Timeframe
                 </label>
-                <Tabs value={timeframe} onValueChange={setTimeframe}>
+                <Tabs value={timeframe} onValueChange={handleTimeframeChange}>
                   <TabsList className="w-full">
-                    <TabsTrigger value="1H" className="flex-1">1H</TabsTrigger>
+                    <TabsTrigger 
+                      value="1H" 
+                      className="flex-1 relative"
+                      disabled={!canAccessTimeframe('1H')}
+                    >
+                      1H
+                      {!canAccessTimeframe('1H') && (
+                        <Lock className="h-3 w-3 ml-1 opacity-50" />
+                      )}
+                    </TabsTrigger>
                     <TabsTrigger value="4H" className="flex-1">4H</TabsTrigger>
                   </TabsList>
                 </Tabs>
@@ -236,14 +299,14 @@ export default function Dashboard() {
 
         {/* Signals List */}
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Seus Sinais</h2>
+          <h2 className="text-xl font-semibold">Your Signals</h2>
           
           {!selectedPair ? (
             <Card className="glass border-border/50">
               <CardContent className="py-12">
                 <div className="text-center">
                   <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Selecione um par para ver os sinais.</p>
+                  <p className="text-muted-foreground">Select a pair to view signals.</p>
                 </div>
               </CardContent>
             </Card>
@@ -252,8 +315,8 @@ export default function Dashboard() {
               <CardContent className="py-12">
                 <div className="text-center">
                   <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Nenhum sinal disponível para este par.</p>
-                  <p className="text-sm text-muted-foreground">Novos sinais aparecerão aqui em tempo real.</p>
+                  <p className="text-muted-foreground">No signals available for this pair.</p>
+                  <p className="text-sm text-muted-foreground">New signals will appear here in real-time.</p>
                 </div>
               </CardContent>
             </Card>

@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { TrendingUp, LogOut, Settings as SettingsIcon, BarChart3, History, Menu, User, Bell, AlertTriangle, Crown, Zap } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { TrendingUp, LogOut, Settings as SettingsIcon, BarChart3, History, Menu, User, Bell, AlertTriangle, Crown, Zap, Loader2 } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
 import { PLANS, type PlanType } from '@/lib/plans';
@@ -27,34 +27,57 @@ export default function Settings() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [userPlan, setUserPlan] = useState<PlanType>('free');
   const [loadingPlan, setLoadingPlan] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState<'basic' | 'pro' | null>(null);
+
+  // Check for success/canceled params
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const canceled = searchParams.get('canceled');
+
+    if (success === 'true') {
+      toast({
+        title: '🎉 Payment Successful!',
+        description: 'Your plan has been upgraded. Enjoy your new features!',
+      });
+      // Reload plan after successful payment
+      setTimeout(() => loadUserPlan(), 1000);
+    } else if (canceled === 'true') {
+      toast({
+        title: 'Payment Canceled',
+        description: 'Your payment was canceled. No charges were made.',
+        variant: 'destructive',
+      });
+    }
+  }, [searchParams, toast]);
+
+  const loadUserPlan = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('plan')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) throw error;
+      
+      if (data?.plan && (data.plan === 'free' || data.plan === 'basic' || data.plan === 'pro')) {
+        setUserPlan(data.plan as PlanType);
+      }
+    } catch (error) {
+      console.error('Error loading user plan:', error);
+    } finally {
+      setLoadingPlan(false);
+    }
+  };
 
   useEffect(() => {
-    const loadUserPlan = async () => {
-      if (!user) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('plan')
-          .eq('user_id', user.id)
-          .single();
-
-        if (error) throw error;
-        
-        if (data?.plan && (data.plan === 'free' || data.plan === 'basic' || data.plan === 'pro')) {
-          setUserPlan(data.plan as PlanType);
-        }
-      } catch (error) {
-        console.error('Error loading user plan:', error);
-      } finally {
-        setLoadingPlan(false);
-      }
-    };
-
     loadUserPlan();
   }, [user]);
 
@@ -71,6 +94,53 @@ export default function Settings() {
     });
     await signOut();
     navigate('/');
+  };
+
+  const handleCheckout = async (plan: 'basic' | 'pro') => {
+    setCheckoutLoading(plan);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: 'Not authenticated',
+          description: 'Please log in to upgrade your plan.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const response = await supabase.functions.invoke('create-checkout', {
+        body: {
+          plan,
+          period: 'monthly',
+          successUrl: `${window.location.origin}/settings?success=true`,
+          cancelUrl: `${window.location.origin}/settings?canceled=true`,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Checkout failed');
+      }
+
+      const { url } = response.data;
+      
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast({
+        title: 'Checkout Error',
+        description: error instanceof Error ? error.message : 'Failed to start checkout',
+        variant: 'destructive',
+      });
+    } finally {
+      setCheckoutLoading(null);
+    }
   };
 
   const currentPlan = PLANS[userPlan];
@@ -178,19 +248,47 @@ export default function Settings() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   {userPlan === 'free' && (
                     <>
-                      <Button size="sm" variant="outline" className="gap-2">
-                        <Zap className="h-4 w-4" />
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="gap-2"
+                        onClick={() => handleCheckout('basic')}
+                        disabled={checkoutLoading !== null}
+                      >
+                        {checkoutLoading === 'basic' ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Zap className="h-4 w-4" />
+                        )}
                         Upgrade to Basic - $39/mo
                       </Button>
-                      <Button size="sm" className="gradient-primary text-white gap-2">
-                        <Crown className="h-4 w-4" />
+                      <Button 
+                        size="sm" 
+                        className="gradient-primary text-white gap-2"
+                        onClick={() => handleCheckout('pro')}
+                        disabled={checkoutLoading !== null}
+                      >
+                        {checkoutLoading === 'pro' ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Crown className="h-4 w-4" />
+                        )}
                         Go Pro - $99/mo
                       </Button>
                     </>
                   )}
                   {userPlan === 'basic' && (
-                    <Button size="sm" className="gradient-primary text-white gap-2">
-                      <Crown className="h-4 w-4" />
+                    <Button 
+                      size="sm" 
+                      className="gradient-primary text-white gap-2"
+                      onClick={() => handleCheckout('pro')}
+                      disabled={checkoutLoading !== null}
+                    >
+                      {checkoutLoading === 'pro' ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Crown className="h-4 w-4" />
+                      )}
                       Upgrade to Pro - $99/mo
                     </Button>
                   )}

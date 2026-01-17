@@ -5,17 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrendingUp, TrendingDown, LogOut, Settings, BarChart3, History as HistoryIcon, Menu, Filter, Calendar } from 'lucide-react';
+import { TrendingUp, TrendingDown, LogOut, Settings, BarChart3, History as HistoryIcon, Menu, Filter, Calendar, Crown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { SignalCard } from '@/components/signals/SignalCard';
+import { useUserPlan } from '@/hooks/useUserPlan';
 import type { SignalWithPair, AllowedPair } from '@/types/database';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format, subDays } from 'date-fns';
 
 export default function History() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { plan, limits, isFree, isBasic } = useUserPlan();
   
   const [signals, setSignals] = useState<SignalWithPair[]>([]);
   const [pairs, setPairs] = useState<AllowedPair[]>([]);
@@ -28,6 +29,12 @@ export default function History() {
   const totalSignals = signals.length;
   const buySignals = signals.filter(s => s.direction === 'LONG').length;
   const sellSignals = signals.filter(s => s.direction === 'SHORT').length;
+
+  // Get the date limit based on plan
+  const getHistoryDateLimit = (): Date | null => {
+    if (limits.historyDays === null) return null; // Pro - unlimited
+    return subDays(new Date(), limits.historyDays);
+  };
 
   useEffect(() => {
     async function fetchPairs() {
@@ -52,6 +59,12 @@ export default function History() {
         .order('created_at', { ascending: false })
         .limit(50);
 
+      // Apply date filter based on plan
+      const dateLimit = getHistoryDateLimit();
+      if (dateLimit) {
+        query = query.gte('created_at', dateLimit.toISOString());
+      }
+
       if (filterPair !== 'all') {
         query = query.eq('pair_id', filterPair);
       }
@@ -71,11 +84,16 @@ export default function History() {
     }
 
     fetchSignals();
-  }, [filterPair, filterDirection, filterTimeframe]);
+  }, [filterPair, filterDirection, filterTimeframe, limits.historyDays]);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const getHistoryLimitText = (): string => {
+    if (limits.historyDays === null) return 'Unlimited';
+    return `Last ${limits.historyDays} days`;
   };
 
   const SidebarContent = () => (
@@ -94,18 +112,18 @@ export default function History() {
         </Link>
         <Link to="/history" className="flex items-center gap-3 px-3 py-2 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground">
           <HistoryIcon className="h-5 w-5" />
-          Histórico
+          History
         </Link>
         <Link to="/settings" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <Settings className="h-5 w-5" />
-          Configurações
+          Settings
         </Link>
       </nav>
 
       <div className="absolute bottom-4 left-4 right-4">
         <Button variant="ghost" className="w-full justify-start" onClick={handleSignOut}>
           <LogOut className="h-5 w-5 mr-2" />
-          Sair
+          Sign Out
         </Button>
       </div>
     </>
@@ -141,10 +159,42 @@ export default function History() {
 
       {/* Main Content */}
       <main className="md:ml-64 p-6 pt-20 md:pt-6">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold">Histórico de Sinais</h1>
-          <p className="text-muted-foreground">Veja todos os sinais gerados</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Signal History</h1>
+            <p className="text-muted-foreground">View all generated signals</p>
+          </div>
+          <Badge variant="outline" className="flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            {getHistoryLimitText()}
+          </Badge>
         </div>
+
+        {/* Upgrade Notice for Limited Plans */}
+        {(isFree || isBasic) && (
+          <Card className="glass border-primary/30 mb-6">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Crown className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="font-medium">
+                      {isFree ? 'Free Plan: 7-day history' : 'Basic Plan: 30-day history'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {isFree ? 'Upgrade to Basic for 30 days or Pro for unlimited history' : 'Upgrade to Pro for unlimited history'}
+                    </p>
+                  </div>
+                </div>
+                <Link to="/settings">
+                  <Button size="sm" className="gradient-primary text-white">
+                    Upgrade
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-6">
@@ -157,13 +207,13 @@ export default function History() {
           <Card className="glass border-border/50">
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-success">{buySignals}</p>
-              <p className="text-sm text-muted-foreground">Compras</p>
+              <p className="text-sm text-muted-foreground">Buy</p>
             </CardContent>
           </Card>
           <Card className="glass border-border/50">
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-destructive">{sellSignals}</p>
-              <p className="text-sm text-muted-foreground">Vendas</p>
+              <p className="text-sm text-muted-foreground">Sell</p>
             </CardContent>
           </Card>
         </div>
@@ -173,19 +223,19 @@ export default function History() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Filter className="h-5 w-5" />
-              Filtros
+              Filters
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="text-sm text-muted-foreground mb-2 block">Par</label>
+                <label className="text-sm text-muted-foreground mb-2 block">Pair</label>
                 <Select value={filterPair} onValueChange={setFilterPair}>
                   <SelectTrigger className="bg-background/50">
-                    <SelectValue placeholder="Todos os pares" />
+                    <SelectValue placeholder="All pairs" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos os pares</SelectItem>
+                    <SelectItem value="all">All pairs</SelectItem>
                     {pairs.map((pair) => (
                       <SelectItem key={pair.id} value={pair.id}>
                         {pair.symbol}
@@ -196,15 +246,15 @@ export default function History() {
               </div>
               
               <div>
-                <label className="text-sm text-muted-foreground mb-2 block">Direção</label>
+                <label className="text-sm text-muted-foreground mb-2 block">Direction</label>
                 <Select value={filterDirection} onValueChange={setFilterDirection}>
                   <SelectTrigger className="bg-background/50">
-                    <SelectValue placeholder="Todas" />
+                    <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="LONG">Compra</SelectItem>
-                    <SelectItem value="SHORT">Venda</SelectItem>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="LONG">Buy</SelectItem>
+                    <SelectItem value="SHORT">Sell</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -213,10 +263,10 @@ export default function History() {
                 <label className="text-sm text-muted-foreground mb-2 block">Timeframe</label>
                 <Select value={filterTimeframe} onValueChange={setFilterTimeframe}>
                   <SelectTrigger className="bg-background/50">
-                    <SelectValue placeholder="Todos" />
+                    <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="all">All</SelectItem>
                     <SelectItem value="1H">1H</SelectItem>
                     <SelectItem value="4H">4H</SelectItem>
                   </SelectContent>
@@ -231,14 +281,14 @@ export default function History() {
           {loading ? (
             <Card className="glass border-border/50">
               <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">Carregando sinais...</p>
+                <p className="text-muted-foreground">Loading signals...</p>
               </CardContent>
             </Card>
           ) : signals.length === 0 ? (
             <Card className="glass border-border/50">
               <CardContent className="py-12 text-center">
                 <HistoryIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">Nenhum sinal encontrado com os filtros selecionados.</p>
+                <p className="text-muted-foreground">No signals found with the selected filters.</p>
               </CardContent>
             </Card>
           ) : (
