@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -6,10 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { TrendingUp, LogOut, Settings as SettingsIcon, BarChart3, History, Menu, User, Bell, AlertTriangle } from 'lucide-react';
+import { TrendingUp, LogOut, Settings as SettingsIcon, BarChart3, History, Menu, User, Bell, AlertTriangle, Crown, Zap } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
+import { PLANS, type PlanType } from '@/lib/plans';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +29,34 @@ export default function Settings() {
   const { toast } = useToast();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [userPlan, setUserPlan] = useState<PlanType>('free');
+  const [loadingPlan, setLoadingPlan] = useState(true);
+
+  useEffect(() => {
+    const loadUserPlan = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('plan')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) throw error;
+        
+        if (data?.plan && (data.plan === 'free' || data.plan === 'basic' || data.plan === 'pro')) {
+          setUserPlan(data.plan as PlanType);
+        }
+      } catch (error) {
+        console.error('Error loading user plan:', error);
+      } finally {
+        setLoadingPlan(false);
+      }
+    };
+
+    loadUserPlan();
+  }, [user]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -36,14 +65,16 @@ export default function Settings() {
 
   const handleDeleteAccount = async () => {
     setDeleting(true);
-    // In a real app, you'd call an edge function to delete the user
     toast({
-      title: 'Conta excluída',
-      description: 'Sua conta foi removida com sucesso.',
+      title: 'Account deleted',
+      description: 'Your account has been successfully removed.',
     });
     await signOut();
     navigate('/');
   };
+
+  const currentPlan = PLANS[userPlan];
+  const priceDisplay = currentPlan.monthlyPrice === 0 ? '$0/mo' : `$${currentPlan.monthlyPrice}/mo`;
 
   const SidebarContent = () => (
     <>
@@ -61,18 +92,18 @@ export default function Settings() {
         </Link>
         <Link to="/history" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <History className="h-5 w-5" />
-          Histórico
+          History
         </Link>
         <Link to="/settings" className="flex items-center gap-3 px-3 py-2 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground">
           <SettingsIcon className="h-5 w-5" />
-          Configurações
+          Settings
         </Link>
       </nav>
 
       <div className="absolute bottom-4 left-4 right-4">
         <Button variant="ghost" className="w-full justify-start" onClick={handleSignOut}>
           <LogOut className="h-5 w-5 mr-2" />
-          Sair
+          Sign Out
         </Button>
       </div>
     </>
@@ -109,8 +140,8 @@ export default function Settings() {
       {/* Main Content */}
       <main className="md:ml-64 p-6 pt-20 md:pt-6">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold">Configurações</h1>
-          <p className="text-muted-foreground">Gerencie sua conta e preferências</p>
+          <h1 className="text-2xl font-bold">Settings</h1>
+          <p className="text-muted-foreground">Manage your account and preferences</p>
         </div>
 
         <div className="space-y-6 max-w-2xl">
@@ -122,8 +153,8 @@ export default function Settings() {
                   <User className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <CardTitle>Conta</CardTitle>
-                  <CardDescription>Informações da sua conta</CardDescription>
+                  <CardTitle>Account</CardTitle>
+                  <CardDescription>Your account information</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -133,12 +164,42 @@ export default function Settings() {
                 <Input value={user?.email || ''} disabled className="mt-1 bg-background/50" />
               </div>
               <div>
-                <Label className="text-muted-foreground">Plano Atual</Label>
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="font-semibold">Free</span>
-                  <Button size="sm" variant="outline" className="ml-auto">
-                    Fazer Upgrade
-                  </Button>
+                <Label className="text-muted-foreground">Current Plan</Label>
+                <div className="mt-2 flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    {userPlan === 'pro' && <Crown className="h-5 w-5 text-yellow-500" />}
+                    {userPlan === 'basic' && <Zap className="h-5 w-5 text-primary" />}
+                    <span className="font-semibold text-lg">{currentPlan.name}</span>
+                    <span className="text-muted-foreground">{priceDisplay}</span>
+                  </div>
+                </div>
+                
+                {/* Upgrade CTAs */}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {userPlan === 'free' && (
+                    <>
+                      <Button size="sm" variant="outline" className="gap-2">
+                        <Zap className="h-4 w-4" />
+                        Upgrade to Basic - $39/mo
+                      </Button>
+                      <Button size="sm" className="gradient-primary text-white gap-2">
+                        <Crown className="h-4 w-4" />
+                        Go Pro - $99/mo
+                      </Button>
+                    </>
+                  )}
+                  {userPlan === 'basic' && (
+                    <Button size="sm" className="gradient-primary text-white gap-2">
+                      <Crown className="h-4 w-4" />
+                      Upgrade to Pro - $99/mo
+                    </Button>
+                  )}
+                  {userPlan === 'pro' && (
+                    <div className="flex items-center gap-2 text-success">
+                      <Crown className="h-5 w-5" />
+                      <span className="font-medium">You're on the best plan!</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -152,16 +213,16 @@ export default function Settings() {
                   <Bell className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <CardTitle>Preferências</CardTitle>
-                  <CardDescription>Personalize sua experiência</CardDescription>
+                  <CardTitle>Preferences</CardTitle>
+                  <CardDescription>Customize your experience</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>Notificações de Sinais</Label>
-                  <p className="text-sm text-muted-foreground">Receber alertas quando novos sinais forem gerados</p>
+                  <Label>Signal Notifications</Label>
+                  <p className="text-sm text-muted-foreground">Receive alerts when new signals are generated</p>
                 </div>
                 <Switch 
                   checked={notificationsEnabled} 
@@ -179,35 +240,35 @@ export default function Settings() {
                   <AlertTriangle className="h-5 w-5 text-destructive" />
                 </div>
                 <div>
-                  <CardTitle className="text-destructive">Zona de Perigo</CardTitle>
-                  <CardDescription>Ações irreversíveis</CardDescription>
+                  <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                  <CardDescription>Irreversible actions</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">Excluir Conta</p>
-                  <p className="text-sm text-muted-foreground">Remove permanentemente sua conta e todos os dados</p>
+                  <p className="font-medium">Delete Account</p>
+                  <p className="text-sm text-muted-foreground">Permanently remove your account and all data</p>
                 </div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" size="sm">
-                      Excluir
+                      Delete
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Esta ação não pode ser desfeita. Isso excluirá permanentemente sua conta
-                        e removerá todos os seus dados dos nossos servidores.
+                        This action cannot be undone. This will permanently delete your account
+                        and remove all your data from our servers.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                        {deleting ? 'Excluindo...' : 'Sim, excluir conta'}
+                        {deleting ? 'Deleting...' : 'Yes, delete account'}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
