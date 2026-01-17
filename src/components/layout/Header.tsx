@@ -3,10 +3,13 @@ import { TrendingUp, Menu, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { LanguageSelector } from '@/components/LanguageSelector';
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -31,50 +34,54 @@ export function Header() {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
             <button 
-              onClick={() => scrollToSection('como-funciona')}
+              onClick={() => scrollToSection('how-it-works')}
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
-              Como Funciona
+              {t('nav.howItWorks')}
             </button>
             <button 
-              onClick={() => scrollToSection('recursos')}
+              onClick={() => scrollToSection('features')}
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
-              Recursos
+              {t('nav.features')}
             </button>
             <button 
-              onClick={() => scrollToSection('precos')}
+              onClick={() => scrollToSection('pricing')}
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
-              Preços
+              {t('nav.pricing')}
             </button>
           </nav>
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
+            <LanguageSelector />
             {user ? (
               <Link to="/dashboard">
-                <Button className="gradient-primary text-white">Dashboard</Button>
+                <Button className="gradient-primary text-white">{t('nav.dashboard')}</Button>
               </Link>
             ) : (
               <>
                 <Link to="/auth/login">
-                  <Button variant="ghost">Entrar</Button>
+                  <Button variant="ghost">{t('nav.signIn')}</Button>
                 </Link>
                 <Link to="/auth/register">
-                  <Button className="gradient-primary text-white">Começar Grátis</Button>
+                  <Button className="gradient-primary text-white">{t('nav.startFree')}</Button>
                 </Link>
               </>
             )}
           </div>
 
           {/* Mobile Menu Button */}
-          <button 
-            className="md:hidden p-2"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+          <div className="flex items-center gap-2 md:hidden">
+            <LanguageSelector />
+            <button 
+              className="p-2"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+            >
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile Menu */}
@@ -82,35 +89,35 @@ export function Header() {
           <div className="md:hidden py-4 border-t border-border/50 animate-fade-in">
             <nav className="flex flex-col gap-4">
               <button 
-                onClick={() => scrollToSection('como-funciona')}
+                onClick={() => scrollToSection('how-it-works')}
                 className="text-left text-muted-foreground hover:text-foreground transition-colors"
               >
-                Como Funciona
+                {t('nav.howItWorks')}
               </button>
               <button 
-                onClick={() => scrollToSection('recursos')}
+                onClick={() => scrollToSection('features')}
                 className="text-left text-muted-foreground hover:text-foreground transition-colors"
               >
-                Recursos
+                {t('nav.features')}
               </button>
               <button 
-                onClick={() => scrollToSection('precos')}
+                onClick={() => scrollToSection('pricing')}
                 className="text-left text-muted-foreground hover:text-foreground transition-colors"
               >
-                Preços
+                {t('nav.pricing')}
               </button>
               <div className="flex flex-col gap-2 pt-4 border-t border-border/50">
                 {user ? (
                   <Link to="/dashboard">
-                    <Button className="w-full gradient-primary text-white">Dashboard</Button>
+                    <Button className="w-full gradient-primary text-white">{t('nav.dashboard')}</Button>
                   </Link>
                 ) : (
                   <>
                     <Link to="/auth/login">
-                      <Button variant="ghost" className="w-full">Entrar</Button>
+                      <Button variant="ghost" className="w-full">{t('nav.signIn')}</Button>
                     </Link>
                     <Link to="/auth/register">
-                      <Button className="w-full gradient-primary text-white">Começar Grátis</Button>
+                      <Button className="w-full gradient-primary text-white">{t('nav.startFree')}</Button>
                     </Link>
                   </>
                 )}

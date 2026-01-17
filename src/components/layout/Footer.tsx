@@ -1,7 +1,10 @@
 import { TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export function Footer() {
+  const { t } = useLanguage();
+
   return (
     <footer className="bg-card border-t border-border">
       <div className="container mx-auto px-4 py-12">
@@ -15,34 +18,34 @@ export function Footer() {
               <span className="font-bold gradient-text">CSP</span>
             </Link>
             <p className="text-sm text-muted-foreground">
-              Sinais de trading cripto alimentados por inteligência artificial avançada.
+              {t('hero.subtitle').slice(0, 80)}...
             </p>
           </div>
 
           {/* Links */}
           <div>
-            <h4 className="font-semibold mb-4">Produto</h4>
+            <h4 className="font-semibold mb-4">{t('footer.product')}</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#como-funciona" className="hover:text-foreground transition-colors">Como Funciona</a></li>
-              <li><a href="#recursos" className="hover:text-foreground transition-colors">Recursos</a></li>
-              <li><a href="#precos" className="hover:text-foreground transition-colors">Preços</a></li>
+              <li><a href="#how-it-works" className="hover:text-foreground transition-colors">{t('nav.howItWorks')}</a></li>
+              <li><a href="#features" className="hover:text-foreground transition-colors">{t('nav.features')}</a></li>
+              <li><a href="#pricing" className="hover:text-foreground transition-colors">{t('nav.pricing')}</a></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="font-semibold mb-4">Suporte</h4>
+            <h4 className="font-semibold mb-4">{t('footer.support')}</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#" className="hover:text-foreground transition-colors">Central de Ajuda</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Contato</a></li>
+              <li><a href="#" className="hover:text-foreground transition-colors">{t('footer.helpCenter')}</a></li>
+              <li><a href="#" className="hover:text-foreground transition-colors">{t('footer.contact')}</a></li>
               <li><a href="#" className="hover:text-foreground transition-colors">FAQ</a></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="font-semibold mb-4">Legal</h4>
+            <h4 className="font-semibold mb-4">{t('footer.legal')}</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#" className="hover:text-foreground transition-colors">Termos de Uso</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Privacidade</a></li>
+              <li><a href="#" className="hover:text-foreground transition-colors">{t('footer.termsOfService')}</a></li>
+              <li><a href="#" className="hover:text-foreground transition-colors">{t('footer.privacyPolicy')}</a></li>
               <li><a href="#" className="hover:text-foreground transition-colors">Cookies</a></li>
             </ul>
           </div>
@@ -51,12 +54,10 @@ export function Footer() {
         {/* Disclaimer */}
         <div className="mt-8 pt-8 border-t border-border">
           <p className="text-xs text-muted-foreground text-center">
-            ⚠️ <strong>Aviso de Risco:</strong> Trading de criptomoedas envolve riscos significativos. 
-            Os sinais fornecidos são apenas para fins educacionais e não constituem aconselhamento financeiro. 
-            Você pode perder parte ou todo o capital investido. Trade com responsabilidade.
+            ⚠️ <strong>{t('footer.disclaimer')}</strong>
           </p>
           <p className="text-xs text-muted-foreground text-center mt-4">
-            © {new Date().getFullYear()} Crypto Signal Pro. Todos os direitos reservados.
+            {t('footer.copyright', { year: new Date().getFullYear() })}
           </p>
         </div>
       </div>

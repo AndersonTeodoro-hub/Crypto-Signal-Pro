@@ -7,50 +7,53 @@ import {
   Target, 
   Smartphone 
 } from 'lucide-react';
-
-const features = [
-  {
-    icon: Zap,
-    title: 'Sinais em Tempo Real',
-    description: 'Receba alertas instantâneos assim que uma oportunidade é identificada.',
-  },
-  {
-    icon: Shield,
-    title: 'Gestão de Risco',
-    description: 'Cada sinal inclui stop loss e múltiplos níveis de take profit.',
-  },
-  {
-    icon: Clock,
-    title: 'Múltiplos Timeframes',
-    description: 'Análise em 1H e 4H para diferentes estratégias de trading.',
-  },
-  {
-    icon: BarChart3,
-    title: 'Análise Técnica IA',
-    description: 'Algoritmos avançados analisam padrões e indicadores automaticamente.',
-  },
-  {
-    icon: Target,
-    title: 'Alta Precisão',
-    description: 'Sinais baseados em múltiplos indicadores para maior assertividade.',
-  },
-  {
-    icon: Smartphone,
-    title: 'Acesso Mobile',
-    description: 'Plataforma responsiva para acompanhar sinais de qualquer lugar.',
-  },
-];
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export function FeaturesSection() {
+  const { t } = useLanguage();
+
+  const features = [
+    {
+      icon: Zap,
+      title: t('features.feature1Title'),
+      description: t('features.feature1Description'),
+    },
+    {
+      icon: Shield,
+      title: t('features.feature3Title'),
+      description: t('features.feature3Description'),
+    },
+    {
+      icon: Clock,
+      title: t('features.feature2Title'),
+      description: t('features.feature2Description'),
+    },
+    {
+      icon: BarChart3,
+      title: t('features.feature1Title'),
+      description: t('features.feature1Description'),
+    },
+    {
+      icon: Target,
+      title: t('features.feature5Title'),
+      description: t('features.feature5Description'),
+    },
+    {
+      icon: Smartphone,
+      title: t('features.feature6Title'),
+      description: t('features.feature6Description'),
+    },
+  ];
+
   return (
-    <section id="recursos" className="py-24">
+    <section id="features" className="py-24">
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Recursos <span className="gradient-text">Poderosos</span>
+            {t('features.title')}
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Tudo que você precisa para tomar decisões de trading mais informadas.
+            {t('features.subtitle')}
           </p>
         </div>
 
