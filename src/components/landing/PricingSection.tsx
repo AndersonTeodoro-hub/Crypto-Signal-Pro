@@ -1,13 +1,21 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Check } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PLANS } from '@/lib/plans';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export function PricingSection() {
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
+  const [checkoutLoading, setCheckoutLoading] = useState<'basic' | 'pro' | null>(null);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   const plans = [
     {
@@ -39,6 +47,48 @@ export function PricingSection() {
     const plan = PLANS[planKey];
     if (plan.monthlyPrice === 0) return '/mo';
     return billingPeriod === 'monthly' ? '/mo' : '/mo';
+  };
+
+  const handleCheckout = async (planKey: 'basic' | 'pro') => {
+    // If not logged in, redirect to register
+    if (!user) {
+      navigate('/auth/register');
+      return;
+    }
+
+    setCheckoutLoading(planKey);
+    
+    try {
+      const response = await supabase.functions.invoke('create-checkout', {
+        body: {
+          plan: planKey,
+          period: billingPeriod,
+          successUrl: `${window.location.origin}/settings?success=true`,
+          cancelUrl: `${window.location.origin}/#precos`,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Checkout failed');
+      }
+
+      const { url } = response.data;
+      
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast({
+        title: 'Checkout Error',
+        description: error instanceof Error ? error.message : 'Failed to start checkout',
+        variant: 'destructive',
+      });
+    } finally {
+      setCheckoutLoading(null);
+    }
   };
 
   return (
@@ -130,7 +180,16 @@ export function PricingSection() {
                     ))}
                   </ul>
 
-                  <Link to="/auth/register">
+                  {plan.key === 'free' ? (
+                    <Link to="/auth/register">
+                      <Button 
+                        className="w-full"
+                        variant="outline"
+                      >
+                        {plan.cta}
+                      </Button>
+                    </Link>
+                  ) : (
                     <Button 
                       className={`w-full ${
                         plan.popular 
@@ -138,10 +197,15 @@ export function PricingSection() {
                           : ''
                       }`}
                       variant={plan.popular ? 'default' : 'outline'}
+                      onClick={() => handleCheckout(plan.key)}
+                      disabled={checkoutLoading !== null}
                     >
+                      {checkoutLoading === plan.key ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
                       {plan.cta}
                     </Button>
-                  </Link>
+                  )}
                 </CardContent>
               </Card>
             );

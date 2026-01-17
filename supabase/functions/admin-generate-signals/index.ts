@@ -35,19 +35,18 @@ Deno.serve(async (req) => {
     })
 
     // Verify JWT and get user
-    const token = authHeader.replace('Bearer ', '')
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token)
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     
-    if (claimsError || !claimsData?.claims) {
-      console.error('Auth error:', claimsError)
+    if (authError || !user) {
+      console.error('Auth error:', authError)
       return new Response(
-        JSON.stringify({ error: 'Token inválido' }),
+        JSON.stringify({ error: 'Invalid token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    const userId = claimsData.claims.sub
-    const userEmail = claimsData.claims.email as string
+    const userId = user.id
+    const userEmail = user.email || ''
 
     console.log(`User ${userEmail} requesting signal generation`)
 

@@ -57,23 +57,23 @@ export function PairSelector({ value, onValueChange }: PairSelectorProps) {
           className="w-full justify-between bg-background/50"
         >
           {loading ? (
-            <span className="text-muted-foreground">Carregando...</span>
+            <span className="text-muted-foreground">Loading...</span>
           ) : selectedPair ? (
             <span className="flex items-center gap-2">
               <span className="font-semibold">{selectedPair.symbol}</span>
               <span className="text-muted-foreground text-sm">({selectedPair.name})</span>
             </span>
           ) : (
-            <span className="text-muted-foreground">Selecione um par...</span>
+            <span className="text-muted-foreground">Select a pair...</span>
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Buscar par..." />
+          <CommandInput placeholder="Search pair..." />
           <CommandList>
-            <CommandEmpty>Nenhum par encontrado.</CommandEmpty>
+            <CommandEmpty>No pair found.</CommandEmpty>
             <CommandGroup>
               {pairs.map((pair) => (
                 <CommandItem
