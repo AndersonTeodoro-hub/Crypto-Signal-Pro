@@ -1,0 +1,57 @@
+name: Generate Trading Signals
+
+on:
+  schedule:
+    # 1H: Every hour at minute 2
+    - cron: '2 * * * *'
+    # 4H: Every 4 hours at minute 6 (00:06, 04:06, 08:06, 12:06, 16:06, 20:06 UTC)
+    - cron: '6 0,4,8,12,16,20 * * *'
+  workflow_dispatch:
+    inputs:
+      timeframe:
+        description: 'Timeframe to generate (1H or 4H)'
+        required: true
+        default: '1H'
+        type: choice
+        options:
+          - '1H'
+          - '4H'
+
+jobs:
+  generate-signals:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Determine Timeframe
+        id: timeframe
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "value=${{ github.event.inputs.timeframe }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" == "2 * * * *" ]; then
+            echo "value=1H" >> $GITHUB_OUTPUT
+          else
+            echo "value=4H" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate Signals
+        run: |
+          echo "Generating signals for timeframe: ${{ steps.timeframe.outputs.value }}"
+          
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/generate-signals" \
+            -H "Content-Type: application/json" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -d '{"timeframe":"${{ steps.timeframe.outputs.value }}"}')
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+          
+          if [ "$http_code" -ne 200 ]; then
+            echo "Error: Request failed with status $http_code"
+            exit 1
+          fi
+          
+          echo "Signal generation completed successfully!"

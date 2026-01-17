@@ -39,8 +39,24 @@ export interface Signal {
   take_profit_3: number;
   analysis: string | null;
   status: 'active' | 'expired' | 'hit_tp' | 'hit_sl';
+  setup: 'SWEEP_OB' | 'FVG_TREND' | 'BOS_RETEST' | null;
+  confidence: number | null;
+  meta: Record<string, unknown> | null;
   created_at: string;
   expires_at: string | null;
+}
+
+export interface Candle {
+  id: string;
+  pair_id: string;
+  timeframe: '1H' | '4H';
+  open_time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  created_at: string;
 }
 
 export interface SignalWithPair extends Signal {
