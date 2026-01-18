@@ -7,12 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { TrendingUp, LogOut, Settings as SettingsIcon, BarChart3, History, Menu, User, Bell, AlertTriangle, Crown, Zap, Loader2 } from 'lucide-react';
+import { TrendingUp, LogOut, Settings as SettingsIcon, BarChart3, History, Menu, User, Bell, AlertTriangle, Crown, Zap, Loader2, Gift, Copy, Share2, Volume2 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
 import { PLANS, type PlanType } from '@/lib/plans';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { useUserPlan } from '@/hooks/useUserPlan';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,11 +32,22 @@ export default function Settings() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [deleting, setDeleting] = useState(false);
-  const [userPlan, setUserPlan] = useState<PlanType>('free');
-  const [loadingPlan, setLoadingPlan] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<'basic' | 'pro' | null>(null);
+  
+  // Referral state
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [loadingReferral, setLoadingReferral] = useState(true);
+  
+  // Notification toggles
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    return localStorage.getItem('signal_sound') !== 'false';
+  });
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  
+  // Use the new effective plan hook
+  const { effectivePlan, planSource, grantExpiresAt, loading: planLoading } = useUserPlan();
 
   // Check for success/canceled params
   useEffect(() => {
@@ -47,8 +59,6 @@ export default function Settings() {
         title: `🎉 ${t('settings.paymentSuccess')}`,
         description: t('settings.paymentSuccessDescription'),
       });
-      // Reload plan after successful payment
-      setTimeout(() => loadUserPlan(), 1000);
     } else if (canceled === 'true') {
       toast({
         title: t('settings.paymentCanceled'),
@@ -58,30 +68,46 @@ export default function Settings() {
     }
   }, [searchParams, toast, t]);
 
-  const loadUserPlan = async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('plan')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error) throw error;
-      
-      if (data?.plan && (data.plan === 'free' || data.plan === 'basic' || data.plan === 'pro')) {
-        setUserPlan(data.plan as PlanType);
-      }
-    } catch (error) {
-      console.error('Error loading user plan:', error);
-    } finally {
-      setLoadingPlan(false);
-    }
-  };
-
+  // Load referral code and notification settings
   useEffect(() => {
-    loadUserPlan();
+    const loadUserData = async () => {
+      if (!user) return;
+      
+      try {
+        // Load profile for referral code
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('referral_code')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (profile?.referral_code) {
+          setReferralCode(profile.referral_code);
+        }
+        
+        // Load user_settings for notifications
+        const { data: settings } = await supabase
+          .from('user_settings')
+          .select('notifications_enabled')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (settings) {
+          setNotificationsEnabled(settings.notifications_enabled);
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      } finally {
+        setLoadingReferral(false);
+      }
+    };
+    
+    loadUserData();
+    
+    // Check notification permission
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
   }, [user]);
 
   const handleSignOut = async () => {
@@ -146,8 +172,110 @@ export default function Settings() {
     }
   };
 
-  const currentPlan = PLANS[userPlan];
+  // Handle referral link copy
+  const handleCopyReferralLink = async () => {
+    if (!referralCode) return;
+    
+    const link = `${window.location.origin}/?ref=${referralCode}`;
+    
+    try {
+      await navigator.clipboard.writeText(link);
+      toast({
+        title: 'Copied!',
+        description: 'Referral link copied to clipboard.',
+      });
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
+  };
+
+  // Handle referral link share
+  const handleShareReferralLink = async () => {
+    if (!referralCode) return;
+    
+    const link = `${window.location.origin}/?ref=${referralCode}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join Crypto Signal Pro',
+          text: 'Get AI-powered crypto trading signals!',
+          url: link,
+        });
+      } catch (error) {
+        // User cancelled or share failed, fallback to copy
+        if ((error as Error).name !== 'AbortError') {
+          handleCopyReferralLink();
+        }
+      }
+    } else {
+      handleCopyReferralLink();
+    }
+  };
+
+  // Handle notification toggle (DB)
+  const handleNotificationsToggle = async (enabled: boolean) => {
+    setNotificationsEnabled(enabled);
+    
+    if (!user) return;
+    
+    try {
+      await supabase
+        .from('user_settings')
+        .update({ notifications_enabled: enabled })
+        .eq('user_id', user.id);
+    } catch (error) {
+      console.error('Error updating notifications:', error);
+    }
+  };
+
+  // Handle sound toggle (localStorage)
+  const handleSoundToggle = (enabled: boolean) => {
+    setSoundEnabled(enabled);
+    localStorage.setItem('signal_sound', String(enabled));
+  };
+
+  // Request desktop notification permission
+  const handleRequestNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+      toast({
+        title: 'Not Supported',
+        description: 'Desktop notifications are not supported in this browser.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      
+      if (permission === 'granted') {
+        toast({
+          title: 'Notifications Enabled',
+          description: 'You will now receive desktop notifications for new signals.',
+        });
+      } else if (permission === 'denied') {
+        toast({
+          title: 'Notifications Blocked',
+          description: 'Please enable notifications in your browser settings.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error requesting notification permission:', error);
+    }
+  };
+
+  const currentPlan = PLANS[effectivePlan];
   const priceDisplay = currentPlan.monthlyPrice === 0 ? '$0/mo' : `$${currentPlan.monthlyPrice}/mo`;
+  
+  // Format plan source display
+  const getPlanSourceText = () => {
+    if (planSource === 'stripe') return '(via subscription)';
+    if (planSource === 'grant') return '(via grant)';
+    return '';
+  };
 
   const SidebarContent = () => (
     <>
@@ -241,16 +369,28 @@ export default function Settings() {
                 <Label className="text-muted-foreground">{t('settings.currentPlan')}</Label>
                 <div className="mt-2 flex items-center gap-3">
                   <div className="flex items-center gap-2">
-                    {userPlan === 'pro' && <Crown className="h-5 w-5 text-yellow-500" />}
-                    {userPlan === 'basic' && <Zap className="h-5 w-5 text-primary" />}
+                    {effectivePlan === 'pro' && <Crown className="h-5 w-5 text-yellow-500" />}
+                    {effectivePlan === 'basic' && <Zap className="h-5 w-5 text-primary" />}
                     <span className="font-semibold text-lg">{currentPlan.name}</span>
                     <span className="text-muted-foreground">{priceDisplay}</span>
+                    <span className="text-sm text-muted-foreground">{getPlanSourceText()}</span>
                   </div>
                 </div>
                 
+                {/* Show grant expiration if applicable */}
+                {planSource === 'grant' && grantExpiresAt && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Expires: {new Date(grantExpiresAt).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric'
+                    })}
+                  </p>
+                )}
+                
                 {/* Upgrade CTAs */}
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {userPlan === 'free' && (
+                  {effectivePlan === 'free' && (
                     <>
                       <Button 
                         size="sm" 
@@ -281,7 +421,7 @@ export default function Settings() {
                       </Button>
                     </>
                   )}
-                  {userPlan === 'basic' && (
+                  {effectivePlan === 'basic' && (
                     <Button 
                       size="sm" 
                       className="gradient-primary text-white gap-2"
@@ -296,13 +436,59 @@ export default function Settings() {
                       {t('settings.upgradeToPro')}
                     </Button>
                   )}
-                  {userPlan === 'pro' && (
+                  {effectivePlan === 'pro' && (
                     <div className="flex items-center gap-2 text-success">
                       <Crown className="h-5 w-5" />
                       <span className="font-medium">{t('settings.youreOnBestPlan')}</span>
                     </div>
                   )}
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Invites & Rewards Card */}
+          <Card className="glass border-border/50">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Gift className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Invites & Rewards</CardTitle>
+                  <CardDescription>Share your referral link and earn rewards</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label className="text-muted-foreground">Your Referral Link</Label>
+                <div className="mt-2 flex gap-2">
+                  <Input 
+                    value={referralCode ? `${window.location.origin}/?ref=${referralCode}` : 'Loading...'} 
+                    disabled 
+                    className="bg-background/50 font-mono text-sm" 
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={handleCopyReferralLink}
+                    disabled={!referralCode || loadingReferral}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={handleShareReferralLink}
+                    disabled={!referralCode || loadingReferral}
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Invite friends and earn rewards when they upgrade their plan.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -321,15 +507,59 @@ export default function Settings() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Signal Alerts Toggle (DB) */}
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>{t('settings.notifications')}</Label>
-                  <p className="text-sm text-muted-foreground">{t('settings.notificationsDescription')}</p>
+                  <Label>Enable Alerts</Label>
+                  <p className="text-sm text-muted-foreground">Show toast notifications for new signals</p>
                 </div>
                 <Switch 
                   checked={notificationsEnabled} 
-                  onCheckedChange={setNotificationsEnabled} 
+                  onCheckedChange={handleNotificationsToggle} 
                 />
+              </div>
+              
+              {/* Sound Toggle (localStorage) */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Volume2 className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <Label>Enable Sound</Label>
+                    <p className="text-sm text-muted-foreground">Play sound when new signals arrive</p>
+                  </div>
+                </div>
+                <Switch 
+                  checked={soundEnabled} 
+                  onCheckedChange={handleSoundToggle} 
+                />
+              </div>
+              
+              {/* Desktop Notification Permission */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Desktop Notifications</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {notificationPermission === 'granted' 
+                      ? 'Enabled - you will receive desktop notifications'
+                      : notificationPermission === 'denied'
+                      ? 'Blocked - enable in browser settings'
+                      : 'Get notified even when the app is in background'
+                    }
+                  </p>
+                </div>
+                {notificationPermission === 'granted' ? (
+                  <span className="text-sm text-green-500 font-medium">Enabled</span>
+                ) : notificationPermission === 'denied' ? (
+                  <span className="text-sm text-destructive font-medium">Blocked</span>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleRequestNotificationPermission}
+                  >
+                    Enable
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
