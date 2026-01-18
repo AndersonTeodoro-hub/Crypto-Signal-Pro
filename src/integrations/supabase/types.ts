@@ -216,6 +216,7 @@ export type Database = {
       signals: {
         Row: {
           analysis: string | null
+          closed_at: string | null
           confidence: number | null
           created_at: string
           direction: string
@@ -224,7 +225,10 @@ export type Database = {
           grade: string
           id: string
           meta: Json | null
+          outcome_price: number | null
+          outcome_tp: number | null
           pair_id: string
+          pnl_percent: number | null
           setup: string | null
           status: string
           stop_loss: number
@@ -235,6 +239,7 @@ export type Database = {
         }
         Insert: {
           analysis?: string | null
+          closed_at?: string | null
           confidence?: number | null
           created_at?: string
           direction: string
@@ -243,7 +248,10 @@ export type Database = {
           grade: string
           id?: string
           meta?: Json | null
+          outcome_price?: number | null
+          outcome_tp?: number | null
           pair_id: string
+          pnl_percent?: number | null
           setup?: string | null
           status?: string
           stop_loss: number
@@ -254,6 +262,7 @@ export type Database = {
         }
         Update: {
           analysis?: string | null
+          closed_at?: string | null
           confidence?: number | null
           created_at?: string
           direction?: string
@@ -262,7 +271,10 @@ export type Database = {
           grade?: string
           id?: string
           meta?: Json | null
+          outcome_price?: number | null
+          outcome_tp?: number | null
           pair_id?: string
+          pnl_percent?: number | null
           setup?: string | null
           status?: string
           stop_loss?: number

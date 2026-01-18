@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,14 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrendingUp, TrendingDown, LogOut, Settings, BarChart3, History as HistoryIcon, Menu, Filter, Calendar, Crown } from 'lucide-react';
+import { TrendingUp, TrendingDown, LogOut, Settings, BarChart3, History as HistoryIcon, Menu, Filter, Calendar, Crown, Target, XCircle, AlertCircle, Info } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { SignalCard } from '@/components/signals/SignalCard';
 import { useUserPlan } from '@/hooks/useUserPlan';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { SignalWithPair, AllowedPair } from '@/types/database';
-import { format, subDays } from 'date-fns';
+import { subDays } from 'date-fns';
 
 export default function History() {
   const { user, signOut } = useAuth();
@@ -27,17 +28,47 @@ export default function History() {
   const [filterPair, setFilterPair] = useState<string>('all');
   const [filterDirection, setFilterDirection] = useState<string>('all');
   const [filterTimeframe, setFilterTimeframe] = useState<string>('all');
-
-  // Stats
-  const totalSignals = signals.length;
-  const buySignals = signals.filter(s => s.direction === 'LONG').length;
-  const sellSignals = signals.filter(s => s.direction === 'SHORT').length;
+  const [filterOutcome, setFilterOutcome] = useState<string>('all');
 
   // Get the date limit based on plan
   const getHistoryDateLimit = (): Date | null => {
     if (limits.historyDays === null) return null; // Pro - unlimited
     return subDays(new Date(), limits.historyDays);
   };
+
+  // Performance stats
+  const stats = useMemo(() => {
+    const wins = signals.filter(s => s.status === 'hit_tp');
+    const losses = signals.filter(s => s.status === 'hit_sl');
+    const expired = signals.filter(s => s.status === 'expired');
+    const active = signals.filter(s => s.status === 'active');
+    
+    const totalDecided = wins.length + losses.length;
+    const winRate = totalDecided > 0 ? (wins.length / totalDecided) * 100 : 0;
+    
+    // TP distribution
+    const tp1 = wins.filter(s => s.outcome_tp === 1).length;
+    const tp2 = wins.filter(s => s.outcome_tp === 2).length;
+    const tp3 = wins.filter(s => s.outcome_tp === 3).length;
+    
+    // Average PnL
+    const winsPnl = wins.reduce((sum, s) => sum + (s.pnl_percent || 0), 0);
+    const lossesPnl = losses.reduce((sum, s) => sum + (s.pnl_percent || 0), 0);
+    const avgWinPnl = wins.length > 0 ? winsPnl / wins.length : 0;
+    const avgLossPnl = losses.length > 0 ? lossesPnl / losses.length : 0;
+    
+    return {
+      total: signals.length,
+      wins: wins.length,
+      losses: losses.length,
+      expired: expired.length,
+      active: active.length,
+      winRate,
+      tp1, tp2, tp3,
+      avgWinPnl,
+      avgLossPnl
+    };
+  }, [signals]);
 
   useEffect(() => {
     async function fetchPairs() {
@@ -60,7 +91,7 @@ export default function History() {
         .from('signals')
         .select(`*, allowed_pairs (*)`)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
 
       // Apply date filter based on plan
       const dateLimit = getHistoryDateLimit();
@@ -77,6 +108,9 @@ export default function History() {
       if (filterTimeframe !== 'all') {
         query = query.eq('timeframe', filterTimeframe);
       }
+      if (filterOutcome !== 'all') {
+        query = query.eq('status', filterOutcome);
+      }
 
       const { data, error } = await query;
 
@@ -87,7 +121,7 @@ export default function History() {
     }
 
     fetchSignals();
-  }, [filterPair, filterDirection, filterTimeframe, limits.historyDays]);
+  }, [filterPair, filterDirection, filterTimeframe, filterOutcome, limits.historyDays]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -202,27 +236,59 @@ export default function History() {
           </Card>
         )}
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <Card className="glass border-border/50">
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold">{totalSignals}</p>
-              <p className="text-sm text-muted-foreground">{t('history.total')}</p>
-            </CardContent>
-          </Card>
-          <Card className="glass border-border/50">
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-success">{buySignals}</p>
-              <p className="text-sm text-muted-foreground">{t('history.buy')}</p>
-            </CardContent>
-          </Card>
-          <Card className="glass border-border/50">
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-destructive">{sellSignals}</p>
-              <p className="text-sm text-muted-foreground">{t('history.sell')}</p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Performance Stats */}
+        <Card className="glass border-border/50 mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <BarChart3 className="h-5 w-5" />
+              {t('trackRecord.performance')}
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="text-xs">{t('trackRecord.disclaimer')}</p>
+                </TooltipContent>
+              </Tooltip>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="text-center p-3 rounded-lg bg-muted/30">
+                <p className="text-2xl font-bold">{stats.winRate.toFixed(1)}%</p>
+                <p className="text-sm text-muted-foreground">{t('trackRecord.winRate')}</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-success/10">
+                <p className="text-2xl font-bold text-success">{stats.wins}</p>
+                <p className="text-sm text-muted-foreground">{t('trackRecord.wins')}</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-destructive/10">
+                <p className="text-2xl font-bold text-destructive">{stats.losses}</p>
+                <p className="text-sm text-muted-foreground">{t('trackRecord.losses')}</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-muted/30">
+                <p className="text-2xl font-bold">{stats.expired}</p>
+                <p className="text-sm text-muted-foreground">{t('trackRecord.expired')}</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-primary/10">
+                <p className="text-2xl font-bold text-primary">{stats.active}</p>
+                <p className="text-sm text-muted-foreground">{t('trackRecord.active')}</p>
+              </div>
+            </div>
+            
+            {/* TP Distribution */}
+            {stats.wins > 0 && (
+              <div className="mt-4 pt-4 border-t border-border/50">
+                <p className="text-sm text-muted-foreground mb-2">{t('trackRecord.tpDistribution')}</p>
+                <div className="flex gap-4">
+                  <Badge variant="outline" className="bg-success/10">TP1: {stats.tp1}</Badge>
+                  <Badge variant="outline" className="bg-success/20">TP2: {stats.tp2}</Badge>
+                  <Badge variant="outline" className="bg-success/30">TP3: {stats.tp3}</Badge>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Filters */}
         <Card className="glass border-border/50 mb-6">
@@ -233,7 +299,7 @@ export default function History() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="text-sm text-muted-foreground mb-2 block">{t('dashboard.pair')}</label>
                 <Select value={filterPair} onValueChange={setFilterPair}>
@@ -278,9 +344,31 @@ export default function History() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div>
+                <label className="text-sm text-muted-foreground mb-2 block">{t('trackRecord.outcome')}</label>
+                <Select value={filterOutcome} onValueChange={setFilterOutcome}>
+                  <SelectTrigger className="bg-background/50">
+                    <SelectValue placeholder={t('history.allOutcomes')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('history.allOutcomes')}</SelectItem>
+                    <SelectItem value="hit_tp">{t('trackRecord.wins')}</SelectItem>
+                    <SelectItem value="hit_sl">{t('trackRecord.losses')}</SelectItem>
+                    <SelectItem value="expired">{t('trackRecord.expired')}</SelectItem>
+                    <SelectItem value="active">{t('trackRecord.active')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Disclaimer */}
+        <div className="mb-6 flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg p-3">
+          <Info className="h-4 w-4 flex-shrink-0" />
+          <p>{t('trackRecord.disclaimer')}</p>
+        </div>
 
         {/* Signals List */}
         <div className="space-y-4">

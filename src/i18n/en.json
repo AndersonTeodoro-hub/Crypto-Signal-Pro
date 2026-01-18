@@ -165,6 +165,7 @@
     "freePlanHistory": "Free Plan: 7-day history",
     "basicPlanHistory": "Basic Plan: 30-day history",
     "upgradeBasic30Days": "Upgrade to Basic for 30 days or Pro for unlimited history",
+    "allOutcomes": "All Outcomes"
     "upgradePro": "Upgrade to Pro for unlimited history",
     "direction": "Direction",
     "timeframe": "Timeframe"
@@ -230,7 +231,25 @@
     "generationError": "Generation Error",
     "sessionExpired": "Session expired. Please log in again.",
     "andMore": "... and {count} more pairs",
-    "signals": "signals"
+    "signals": "signals",
+    "growthMetrics": "Growth Metrics",
+    "totalUsers": "Total Users",
+    "usersByPlan": "By Plan",
+    "activeGrants": "Active Grants",
+    "pendingReferrals": "Pending Referrals",
+    "approvedReferrals": "Approved Referrals",
+    "signalPerformance": "Signal Performance",
+    "last7Days": "Last 7 Days",
+    "last30Days": "Last 30 Days",
+    "totalSignals": "Total Signals",
+    "byTimeframe": "By Timeframe",
+    "outcomeUpdater": "Outcome Updater",
+    "runOutcomeUpdater": "Run Outcome Update",
+    "runOutcomeUpdaterDescription": "Check active signals for TP/SL hits",
+    "updatingOutcomes": "Updating...",
+    "outcomesUpdated": "Outcomes Updated",
+    "outcomesUpdatedDescription": "Processed {processed}, updated {updated}, expired {expired}",
+    "outcomeUpdateError": "Update Error"
   },
   "signal": {
     "buy": "BUY",
@@ -245,6 +264,23 @@
     "active": "Active",
     "expired": "Expired",
     "new": "New"
+  },
+  "trackRecord": {
+    "winRate": "Win Rate",
+    "wins": "Wins",
+    "losses": "Losses",
+    "expired": "Expired",
+    "active": "Active",
+    "hit": "HIT",
+    "slHit": "STOP HIT",
+    "tpDistribution": "TP Distribution",
+    "performance": "Performance",
+    "outcome": "Outcome",
+    "closedAt": "Closed",
+    "viewChart": "View Chart",
+    "latestWin": "Latest Verified Win",
+    "verify": "Verify on Chart",
+    "disclaimer": "Past performance does not guarantee future results. Results verified using historical price data."
   },
   "common": {
     "loading": "Loading...",

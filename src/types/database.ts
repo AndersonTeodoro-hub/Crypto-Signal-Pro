@@ -48,6 +48,11 @@ export interface Signal {
   meta: Record<string, unknown> | null;
   created_at: string;
   expires_at: string | null;
+  // Outcome tracking fields
+  closed_at: string | null;
+  outcome_price: number | null;
+  pnl_percent: number | null;
+  outcome_tp: 1 | 2 | 3 | null;
 }
 
 export interface Candle {
