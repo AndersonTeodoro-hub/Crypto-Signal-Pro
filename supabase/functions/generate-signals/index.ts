@@ -68,6 +68,25 @@ const FETCH_TIMEOUT = 8000 // 8 seconds
 const MAX_RETRIES = 2
 const RETRY_DELAYS = [400, 900] // ms
 
+// Convert symbol formats: BTCUSDT -> BTC-USDT, ETHUSDT -> ETH-USDT
+function convertToOKXSymbol(symbol: string): string {
+  // Remove any existing separators first
+  const cleanSymbol = symbol.replace(/[/-]/g, '')
+  
+  // List of known quote currencies (in priority order)
+  const quotes = ['USDT', 'USDC', 'BUSD', 'USD', 'BTC', 'ETH']
+  
+  for (const quote of quotes) {
+    if (cleanSymbol.endsWith(quote)) {
+      const base = cleanSymbol.slice(0, -quote.length)
+      return `${base}-${quote}`
+    }
+  }
+  
+  // Fallback: assume last 4 chars are quote (USDT)
+  return `${cleanSymbol.slice(0, -4)}-${cleanSymbol.slice(-4)}`
+}
+
 async function fetchWithTimeout(
   url: string,
   options: RequestInit = {},
@@ -191,7 +210,7 @@ async function fetchOKXKlines(
   limit: number = 220
 ): Promise<KlineData[] | null> {
   // OKX uses format "BTC-USDT" (with hyphen)
-  const okxSymbol = symbol.replace('/', '-')
+  const okxSymbol = convertToOKXSymbol(symbol)
   const bar = TIMEFRAME_MAP[timeframe].okx
   
   console.log(`[OKX] Fetching ${okxSymbol} ${timeframe} (bar=${bar}, target=${limit} candles)`)
@@ -297,17 +316,17 @@ async function fetchKlines(
   timeframe: '1H' | '4H',
   limit: number = 220
 ): Promise<KlineData[] | null> {
-  // Try Bybit first
-  const bybitData = await fetchBybitKlines(symbol, timeframe, limit)
-  if (bybitData && bybitData.length > 0) {
-    return bybitData
-  }
-  
-  // Fallback to OKX
-  console.log('[Fallback] Bybit failed, trying OKX...')
+  // Try OKX first (Bybit returns 403 from edge function datacenter)
   const okxData = await fetchOKXKlines(symbol, timeframe, limit)
   if (okxData && okxData.length > 0) {
     return okxData
+  }
+  
+  // Fallback to Bybit
+  console.log('[Fallback] OKX failed, trying Bybit...')
+  const bybitData = await fetchBybitKlines(symbol, timeframe, limit)
+  if (bybitData && bybitData.length > 0) {
+    return bybitData
   }
   
   console.error(`[Error] All market data APIs failed for ${symbol}`)
@@ -933,15 +952,15 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${pairs.length} active pairs`)
 
-    // === Quick Bybit connection test for BTC/USDT ===
-    console.log('=== Running Bybit connection test for BTC/USDT ===')
-    const testKlines = await fetchBybitKlines('BTC/USDT', timeframe, 220)
+    // === Quick OKX connection test for BTCUSDT ===
+    console.log('=== Running OKX connection test for BTCUSDT ===')
+    const testKlines = await fetchOKXKlines('BTCUSDT', timeframe, 220)
     if (testKlines) {
-      console.log(`=== Bybit test SUCCESS: ${testKlines.length} candles ===`)
+      console.log(`=== OKX test SUCCESS: ${testKlines.length} candles ===`)
       console.log(`    First candle: ${new Date(testKlines[0].time).toISOString()}`)
       console.log(`    Last candle: ${new Date(testKlines[testKlines.length - 1].time).toISOString()}`)
     } else {
-      console.log('=== Bybit test FAILED, will rely on OKX fallback ===')
+      console.log('=== OKX test FAILED, will try Bybit fallback ===')
     }
 
     const results: { pair: string, signal?: SignalSetup, error?: string }[] = []
