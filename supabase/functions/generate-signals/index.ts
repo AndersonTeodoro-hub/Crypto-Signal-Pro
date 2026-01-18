@@ -48,6 +48,46 @@ interface SignalSetup {
   meta: Record<string, unknown>
 }
 
+// Normalized setup with mathematically correct R:R levels
+interface NormalizedSetup extends SignalSetup {
+  riskR: number
+  rrRatios: { tp1: number; tp2: number; tp3: number }
+}
+
+// Normalize setup levels: TP1=1.5R, TP2=2.5R, TP3=4.0R
+function normalizeSetupLevels(setup: SignalSetup): NormalizedSetup | null {
+  const R = Math.abs(setup.entry - setup.stopLoss)
+  
+  // Invalid risk - cannot proceed
+  if (R <= 0) {
+    console.warn(`[Normalize] Invalid R=0 for ${setup.setup}`)
+    return null
+  }
+  
+  let tp1: number, tp2: number, tp3: number
+  
+  if (setup.direction === 'LONG') {
+    // LONG: SL < Entry < TP1 < TP2 < TP3
+    tp1 = setup.entry + (R * 1.5)
+    tp2 = setup.entry + (R * 2.5)
+    tp3 = setup.entry + (R * 4.0)
+  } else {
+    // SHORT: TP3 < TP2 < TP1 < Entry < SL
+    tp1 = setup.entry - (R * 1.5)
+    tp2 = setup.entry - (R * 2.5)
+    tp3 = setup.entry - (R * 4.0)
+  }
+  
+  return {
+    ...setup,
+    takeProfit1: tp1,
+    takeProfit2: tp2,
+    takeProfit3: tp3,
+    riskR: R,
+    rrRatios: { tp1: 1.5, tp2: 2.5, tp3: 4.0 }
+  }
+}
+
 // ============= DATA FETCHING =============
 
 interface KlineData {
@@ -728,44 +768,73 @@ function analyzeSetup3_BOSRetest(candles: Candle[], swings: SwingPoint[], bos: {
   return null
 }
 
+// Grade is now determined by AI, not this function
+// Kept for backwards compatibility if needed
 function getGrade(confidence: number): 'A+' | 'A' | 'B+' | 'B' {
-  if (confidence >= 80) return 'A+'
-  if (confidence >= 65) return 'A'
-  if (confidence >= 50) return 'B+'
+  if (confidence >= 85) return 'A+'
+  if (confidence >= 70) return 'A'
+  if (confidence >= 60) return 'B+'
   return 'B'
 }
 
 // ============= AI CONFIRMATION =============
 
 interface AIConfirmation {
-  confirmed: boolean
-  confidence_adjustment: number
-  analysis: string
-  risk_notes: string
+  approve: boolean
+  confidence: number // 0-100
+  grade: 'A+' | 'A' | 'B+' | 'B' | 'REJECT'
+  reason: string // max 2 sentences, English
+  riskNotes: string[] // bullet points
+  improvements: string[] // what to change to approve
+  suggestedAdjustments?: {
+    entry?: number
+    stopLoss?: number
+    takeProfit1?: number
+    takeProfit2?: number
+    takeProfit3?: number
+  }
 }
 
-const AI_SYSTEM_PROMPT = `Você é um analista de trading especializado em Smart Money Concepts (SMC) e Price Action.
+const AI_SYSTEM_PROMPT = `You are a senior institutional trading analyst specialized in Smart Money Concepts (SMC) and risk management.
 
-Sua função é analisar setups de trading detectados algoritmicamente e:
-1. CONFIRMAR ou REJEITAR o setup baseado no contexto de mercado
-2. AJUSTAR o score de confiança (-20 a +20 pontos)
-3. GERAR uma análise concisa e profissional em português
-4. IDENTIFICAR riscos específicos do setup
+You act as a STRICT GATEKEEPER for trading signals. You must:
+1. APPROVE only high-probability setups (confidence ≥60%)
+2. REJECT setups with clear reasoning and actionable improvements
+3. ALWAYS respond via the analyze_signal function in English
 
-Critérios de validação:
-- Tendência alinhada com a direção do sinal
-- Estrutura de mercado clara (Higher Highs/Higher Lows ou vice-versa)
-- Volume confirmatório
-- RSI não em extremos contrários
-- Distância adequada entre entry e SL (mínimo 0.5%, máximo 2%)
-- Risk/Reward mínimo de 1:1.5
+HARD REJECTION CRITERIA (automatic REJECT):
+- Risk/Reward < 1.5 at TP1
+- Stop Loss < 0.5% or > 3% from entry
+- RSI > 80 for LONG or RSI < 20 for SHORT
+- Price structure contradicts trade direction
+- Entry/SL/TP levels incoherent (e.g., SL > Entry for LONG)
 
-SEJA RIGOROSO: Rejeite setups fracos ou com baixa probabilidade.`
+APPROVAL CRITERIA:
+- Clear market structure (HH/HL for LONG, LH/LL for SHORT)
+- Trend aligned with direction (EMA50/EMA200)
+- Adequate R:R ratio (minimum 1.5 at TP1)
+- RSI supports direction
+- Valid SMC pattern (Order Block, FVG, BOS)
+
+GRADING:
+- A+: Perfect setup, high confluence, strong trend alignment (confidence 85-100)
+- A: Solid setup, good R:R, clear structure (confidence 70-84)
+- B+: Acceptable setup, minor concerns (confidence 60-69)
+- B: Marginal, proceed with caution (confidence 50-59)
+- REJECT: Fails criteria, do not trade (confidence < 50)
+
+When REJECTING, you MUST provide:
+1. reason: Clear, concise explanation (max 2 sentences)
+2. riskNotes: List of specific risks identified
+3. improvements: Actionable steps to make the trade valid
+4. suggestedAdjustments (optional): Better entry/SL/TP levels
+
+Respond ONLY via the analyze_signal function. All text must be in English.`
 
 async function confirmWithAI(
   pair: string,
   timeframe: string,
-  setup: SignalSetup,
+  setup: NormalizedSetup,
   candles: Candle[],
   ema50Value: number,
   ema200Value: number,
@@ -784,45 +853,43 @@ async function confirmWithAI(
     const recentCandles = candles.slice(-20)
     const candlesSummary = recentCandles.map((c, i) => {
       const change = ((c.close - c.open) / c.open * 100).toFixed(2)
-      const direction = c.close >= c.open ? '🟢' : '🔴'
-      return `${i + 1}. ${direction} O:${c.open.toFixed(2)} H:${c.high.toFixed(2)} L:${c.low.toFixed(2)} C:${c.close.toFixed(2)} (${change}%)`
+      const direction = c.close >= c.open ? 'BULL' : 'BEAR'
+      return `${i + 1}. ${direction} O:${c.open.toFixed(4)} H:${c.high.toFixed(4)} L:${c.low.toFixed(4)} C:${c.close.toFixed(4)} (${change}%)`
     }).join('\n')
     
     const lastPrice = candles[candles.length - 1].close
-    const riskPercent = setup.direction === 'LONG' 
-      ? ((setup.entry - setup.stopLoss) / setup.entry * 100).toFixed(2)
-      : ((setup.stopLoss - setup.entry) / setup.entry * 100).toFixed(2)
+    const riskPercent = (setup.riskR / setup.entry * 100).toFixed(2)
     
-    const rrRatio = ((setup.takeProfit1 - setup.entry) / (setup.entry - setup.stopLoss)).toFixed(2)
-    
-    const userPrompt = `Analise este setup de trading:
+    const userPrompt = `Analyze this trading setup:
 
-**Par:** ${pair}
+**Pair:** ${pair}
 **Timeframe:** ${timeframe}
-**Setup Detectado:** ${setup.setup}
-**Direção:** ${setup.direction}
-**Confiança Atual:** ${setup.confidence}%
+**Setup Type:** ${setup.setup}
+**Direction:** ${setup.direction}
+**Initial Confidence:** ${setup.confidence}%
 
-**Níveis:**
-- Preço Atual: ${lastPrice.toFixed(2)}
-- Entry: ${setup.entry.toFixed(2)}
-- Stop Loss: ${setup.stopLoss.toFixed(2)} (Risco: ${riskPercent}%)
-- TP1: ${setup.takeProfit1.toFixed(2)} | TP2: ${setup.takeProfit2.toFixed(2)} | TP3: ${setup.takeProfit3.toFixed(2)}
-- Risk/Reward: 1:${rrRatio}
+**Price Levels:**
+- Current Price: ${lastPrice.toFixed(4)}
+- Entry: ${setup.entry.toFixed(4)}
+- Stop Loss: ${setup.stopLoss.toFixed(4)} (Risk: ${riskPercent}%)
+- TP1 (1.5R): ${setup.takeProfit1.toFixed(4)}
+- TP2 (2.5R): ${setup.takeProfit2.toFixed(4)}
+- TP3 (4.0R): ${setup.takeProfit3.toFixed(4)}
+- Risk (R): ${setup.riskR.toFixed(4)}
 
-**Indicadores:**
-- EMA 50: ${ema50Value.toFixed(2)}
-- EMA 200: ${ema200Value.toFixed(2)}
+**Technical Indicators:**
+- EMA 50: ${ema50Value.toFixed(4)} (Price ${lastPrice > ema50Value ? 'ABOVE' : 'BELOW'})
+- EMA 200: ${ema200Value.toFixed(4)} (Price ${lastPrice > ema200Value ? 'ABOVE' : 'BELOW'})
 - RSI (14): ${rsiValue.toFixed(1)}
-- Tendência: ${trend.toUpperCase()}
+- Trend: ${trend.toUpperCase()}
 
-**Análise Algorítmica:**
+**Algorithmic Analysis:**
 ${setup.analysis}
 
-**Últimos 20 Candles:**
+**Last 20 Candles:**
 ${candlesSummary}
 
-Analise criticamente e use a função confirm_signal para responder.`
+Analyze critically and use the analyze_signal function to respond.`
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -840,35 +907,59 @@ Analise criticamente e use a função confirm_signal para responder.`
           {
             type: 'function',
             function: {
-              name: 'confirm_signal',
-              description: 'Confirma ou rejeita o setup de trading analisado',
+              name: 'analyze_signal',
+              description: 'Provides structured analysis of the trading setup',
               parameters: {
                 type: 'object',
                 properties: {
-                  confirmed: {
+                  approve: {
                     type: 'boolean',
-                    description: 'true se o setup é válido e deve ser executado, false se deve ser rejeitado'
+                    description: 'true if setup is valid and should be executed, false if rejected'
                   },
-                  confidence_adjustment: {
+                  confidence: {
                     type: 'integer',
-                    description: 'Ajuste na confiança: -20 a +20 pontos. Positivo aumenta, negativo diminui'
+                    minimum: 0,
+                    maximum: 100,
+                    description: 'Final confidence score (0-100)'
                   },
-                  analysis: {
+                  grade: {
                     type: 'string',
-                    description: 'Análise profissional do setup em português (máximo 3 frases). Explique os pontos fortes e fracos.'
+                    enum: ['A+', 'A', 'B+', 'B', 'REJECT'],
+                    description: 'Grade for the setup quality'
                   },
-                  risk_notes: {
+                  reason: {
                     type: 'string',
-                    description: 'Observações de risco específicas para este trade (níveis a monitorar, eventos, etc)'
+                    description: 'Short reason for approval/rejection (max 2 sentences, in English)'
+                  },
+                  riskNotes: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'List of specific risk factors (bullet points, in English)'
+                  },
+                  improvements: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'List of improvements that would make this trade valid (in English)'
+                  },
+                  suggestedAdjustments: {
+                    type: 'object',
+                    properties: {
+                      entry: { type: 'number' },
+                      stopLoss: { type: 'number' },
+                      takeProfit1: { type: 'number' },
+                      takeProfit2: { type: 'number' },
+                      takeProfit3: { type: 'number' }
+                    },
+                    description: 'Optional: adjusted levels that would make the trade valid'
                   }
                 },
-                required: ['confirmed', 'confidence_adjustment', 'analysis', 'risk_notes'],
+                required: ['approve', 'confidence', 'grade', 'reason', 'riskNotes', 'improvements'],
                 additionalProperties: false
               }
             }
           }
         ],
-        tool_choice: { type: 'function', function: { name: 'confirm_signal' } }
+        tool_choice: { type: 'function', function: { name: 'analyze_signal' } }
       })
     })
     
@@ -882,13 +973,13 @@ Analise criticamente e use a função confirm_signal para responder.`
     
     // Extract tool call response
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0]
-    if (!toolCall || toolCall.function.name !== 'confirm_signal') {
+    if (!toolCall || toolCall.function.name !== 'analyze_signal') {
       console.error('Unexpected AI response format:', JSON.stringify(data))
       return null
     }
     
     const args = JSON.parse(toolCall.function.arguments) as AIConfirmation
-    console.log(`AI Confirmation for ${pair}: confirmed=${args.confirmed}, adjustment=${args.confidence_adjustment}`)
+    console.log(`[AI] ${pair}: approve=${args.approve}, grade=${args.grade}, confidence=${args.confidence}`)
     
     return args
     
@@ -963,13 +1054,59 @@ Deno.serve(async (req) => {
       console.log('=== OKX test FAILED, will try Bybit fallback ===')
     }
 
-    const results: { pair: string, signal?: SignalSetup, error?: string }[] = []
+    // ProcessResult interface for structured output
+    interface ProcessResult {
+      pair: string
+      signal?: NormalizedSetup
+      error?: string
+      aiAnalysis?: {
+        grade: string
+        confidence: number
+        riskNotes: string[]
+        improvements: string[]
+        suggestedAdjustments?: Record<string, number>
+      }
+    }
+
+    const results: ProcessResult[] = []
+
+    // === Quick test for normalizeSetupLevels ===
+    console.log('=== Testing normalizeSetupLevels ===')
+    const testSetup: SignalSetup = {
+      setup: 'FVG_TREND',
+      direction: 'LONG',
+      entry: 100,
+      stopLoss: 98,
+      takeProfit1: 0, takeProfit2: 0, takeProfit3: 0,
+      confidence: 70,
+      analysis: 'Test',
+      meta: {}
+    }
+    const normalizedTest = normalizeSetupLevels(testSetup)
+    if (normalizedTest) {
+      console.log(`Test LONG: R=${normalizedTest.riskR}, TP1=${normalizedTest.takeProfit1} (exp 103), TP2=${normalizedTest.takeProfit2} (exp 105), TP3=${normalizedTest.takeProfit3} (exp 108)`)
+    }
+    const testSetupShort: SignalSetup = {
+      setup: 'FVG_TREND',
+      direction: 'SHORT',
+      entry: 100,
+      stopLoss: 102,
+      takeProfit1: 0, takeProfit2: 0, takeProfit3: 0,
+      confidence: 70,
+      analysis: 'Test',
+      meta: {}
+    }
+    const normalizedTestShort = normalizeSetupLevels(testSetupShort)
+    if (normalizedTestShort) {
+      console.log(`Test SHORT: R=${normalizedTestShort.riskR}, TP1=${normalizedTestShort.takeProfit1} (exp 97), TP2=${normalizedTestShort.takeProfit2} (exp 95), TP3=${normalizedTestShort.takeProfit3} (exp 92)`)
+    }
+    console.log('=== End normalizeSetupLevels test ===')
 
     for (const pair of pairs) {
       try {
         console.log(`Processing pair: ${pair.symbol}`)
         
-        // Fetch candles from Bybit (fallback: OKX)
+        // Fetch candles from OKX (fallback: Bybit)
         const klineData = await fetchKlines(pair.symbol, timeframe, 220)
 
         if (!klineData || klineData.length === 0) {
@@ -1034,25 +1171,40 @@ Deno.serve(async (req) => {
         const validSetups = setups.filter((s): s is SignalSetup => s !== null)
         
         if (validSetups.length > 0) {
+          // Get best setup by confidence
           const bestSetup = validSetups.reduce((best, current) => 
             current.confidence > best.confidence ? current : best
           )
 
+          // Store original confidence BEFORE any bonus
+          const originalConfidence = bestSetup.confidence
+
           // Check for confluence (multiple setups increase confidence)
           const confluenceBonus = (validSetups.length - 1) * 10
           bestSetup.confidence = Math.min(100, bestSetup.confidence + confluenceBonus)
+
+          // === NORMALIZE LEVELS (TP1=1.5R, TP2=2.5R, TP3=4R) ===
+          const normalized = normalizeSetupLevels(bestSetup)
+          
+          if (!normalized) {
+            console.warn(`[${pair.symbol}] Invalid risk (R=0), skipping`)
+            results.push({ pair: pair.symbol, error: 'Invalid risk (R=0)' })
+            continue
+          }
+
+          console.log(`[Normalize] ${pair.symbol}: R=${normalized.riskR.toFixed(4)}, TP1=1.5R, TP2=2.5R, TP3=4R`)
 
           // Get current indicator values for AI
           const currentEma50 = ema50[candles.length - 1] || 0
           const currentEma200 = ema200[candles.length - 1] || 0
           const currentRsi = rsi[rsi.length - 1] || 50
 
-          // Confirm with AI (Gemini 3)
-          console.log(`Requesting AI confirmation for ${pair.symbol} ${bestSetup.setup}...`)
+          // === CONFIRM WITH AI (Senior Analyst) ===
+          console.log(`[AI] Requesting analysis for ${pair.symbol} ${normalized.setup}...`)
           const aiConfirmation = await confirmWithAI(
             pair.symbol,
             timeframe,
-            bestSetup,
+            normalized,
             candles,
             currentEma50,
             currentEma200,
@@ -1060,71 +1212,88 @@ Deno.serve(async (req) => {
             trend
           )
 
-          // Process AI response
-          let finalConfidence = bestSetup.confidence
-          let finalAnalysis = bestSetup.analysis + (confluenceBonus > 0 ? ` [Confluência: ${validSetups.length} setups]` : '')
-          let aiConfirmed = true
-          let riskNotes = ''
-
+          // === PROCESS AI RESPONSE ===
           if (aiConfirmation) {
-            if (!aiConfirmation.confirmed) {
-              // AI rejected the setup
-              console.log(`AI REJECTED setup for ${pair.symbol}: ${aiConfirmation.analysis}`)
+            if (!aiConfirmation.approve) {
+              // AI REJECTED - Log structured feedback, don't insert signal
+              console.log(`[AI REJECT] ${pair.symbol}: ${aiConfirmation.reason}`)
+              console.log(`[AI REJECT] Grade: ${aiConfirmation.grade}, Confidence: ${aiConfirmation.confidence}`)
+              console.log(`[AI REJECT] Improvements: ${aiConfirmation.improvements.join(', ')}`)
+              
               results.push({ 
                 pair: pair.symbol, 
-                error: `AI rejected: ${aiConfirmation.analysis}` 
+                error: `AI rejected: ${aiConfirmation.reason}`,
+                aiAnalysis: {
+                  grade: aiConfirmation.grade,
+                  confidence: aiConfirmation.confidence,
+                  riskNotes: aiConfirmation.riskNotes,
+                  improvements: aiConfirmation.improvements,
+                  suggestedAdjustments: aiConfirmation.suggestedAdjustments as Record<string, number> | undefined
+                }
               })
               continue // Skip to next pair
             }
 
-            // AI confirmed - apply adjustments
-            aiConfirmed = true
-            finalConfidence = Math.min(100, Math.max(0, bestSetup.confidence + aiConfirmation.confidence_adjustment))
-            finalAnalysis = aiConfirmation.analysis
-            riskNotes = aiConfirmation.risk_notes
-            
-            console.log(`AI CONFIRMED ${pair.symbol}: adjustment=${aiConfirmation.confidence_adjustment}, new confidence=${finalConfidence}`)
-          }
+            // === AI APPROVED - Insert signal ===
+            console.log(`[AI APPROVE] ${pair.symbol}: grade=${aiConfirmation.grade}, confidence=${aiConfirmation.confidence}`)
 
-          // Insert signal with AI-enhanced data
-          const { error: insertError } = await supabase
-            .from('signals')
-            .insert({
-              pair_id: pair.id,
-              timeframe,
-              direction: bestSetup.direction,
-              grade: getGrade(finalConfidence),
-              entry_price: bestSetup.entry,
-              stop_loss: bestSetup.stopLoss,
-              take_profit_1: bestSetup.takeProfit1,
-              take_profit_2: bestSetup.takeProfit2,
-              take_profit_3: bestSetup.takeProfit3,
-              analysis: finalAnalysis,
-              status: 'active',
-              setup: bestSetup.setup,
-              confidence: finalConfidence,
-              meta: {
-                ...bestSetup.meta,
-                ai_confirmed: aiConfirmed,
-                risk_notes: riskNotes,
-                confluence_count: validSetups.length,
-                original_confidence: bestSetup.confidence - confluenceBonus
-              },
-              expires_at: new Date(Date.now() + (timeframe === '1H' ? 4 : 16) * 60 * 60 * 1000).toISOString()
-            })
+            // Build premium English analysis block
+            const riskNotesBlock = aiConfirmation.riskNotes.length > 0 
+              ? `\nRisks:\n${aiConfirmation.riskNotes.map(r => `- ${r}`).join('\n')}` 
+              : ''
+            const improvementsBlock = aiConfirmation.improvements.length > 0 
+              ? `\nImprovements:\n${aiConfirmation.improvements.map(i => `- ${i}`).join('\n')}` 
+              : ''
+            const premiumAnalysis = `Reason: ${aiConfirmation.reason}${riskNotesBlock}${improvementsBlock}`
 
-          if (insertError) {
-            // Unique constraint violation means there's already an active signal
-            if (insertError.code === '23505') {
-              console.log(`Active signal already exists for ${pair.symbol} ${timeframe}`)
-              results.push({ pair: pair.symbol, error: 'Active signal already exists' })
+            const { error: insertError } = await supabase
+              .from('signals')
+              .insert({
+                pair_id: pair.id,
+                timeframe,
+                direction: normalized.direction,
+                entry_price: normalized.entry,
+                stop_loss: normalized.stopLoss,
+                take_profit_1: normalized.takeProfit1,
+                take_profit_2: normalized.takeProfit2,
+                take_profit_3: normalized.takeProfit3,
+                analysis: premiumAnalysis,
+                status: 'active',
+                confidence: aiConfirmation.confidence,
+                meta: {
+                  ...normalized.meta,
+                  ai_confirmed: true,
+                  ai_grade: aiConfirmation.grade,
+                  ai_confidence: aiConfirmation.confidence,
+                  riskNotes: aiConfirmation.riskNotes,
+                  improvements: aiConfirmation.improvements,
+                  suggestedAdjustments: aiConfirmation.suggestedAdjustments,
+                  riskR: normalized.riskR,
+                  rrRatios: normalized.rrRatios,
+                  confluence_count: validSetups.length,
+                  original_confidence: originalConfidence,
+                  setup_type: normalized.setup
+                },
+                expires_at: new Date(Date.now() + (timeframe === '1H' ? 4 : 16) * 60 * 60 * 1000).toISOString()
+              })
+
+            if (insertError) {
+              // Unique constraint violation means there's already an active signal
+              if (insertError.code === '23505') {
+                console.log(`Active signal already exists for ${pair.symbol} ${timeframe}`)
+                results.push({ pair: pair.symbol, error: 'Active signal already exists' })
+              } else {
+                console.error(`Error inserting signal for ${pair.symbol}:`, insertError)
+                results.push({ pair: pair.symbol, error: insertError.message })
+              }
             } else {
-              console.error(`Error inserting signal for ${pair.symbol}:`, insertError)
-              results.push({ pair: pair.symbol, error: insertError.message })
+              console.log(`[SIGNAL] ${pair.symbol}: ${normalized.direction} (${normalized.setup}) grade=${aiConfirmation.grade}`)
+              results.push({ pair: pair.symbol, signal: normalized })
             }
           } else {
-            console.log(`Signal created for ${pair.symbol}: ${bestSetup.direction} (${bestSetup.setup}) [AI ${aiConfirmed ? 'confirmed' : 'pending'}]`)
-            results.push({ pair: pair.symbol, signal: bestSetup })
+            // AI not available - skip signal (be conservative)
+            console.log(`[AI] Skipping ${pair.symbol} - AI confirmation unavailable`)
+            results.push({ pair: pair.symbol, error: 'AI confirmation unavailable' })
           }
         } else {
           results.push({ pair: pair.symbol, error: 'No valid setup found' })
