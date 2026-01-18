@@ -20,6 +20,10 @@ on:
 jobs:
   generate-signals:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        chunk: [0, 1, 2, 3, 4, 5]
     
     steps:
       - name: Install jq
@@ -36,46 +40,76 @@ jobs:
             echo "value=4H" >> $GITHUB_OUTPUT
           fi
 
-      - name: Generate Signals
+      - name: Generate Signals (Chunk ${{ matrix.chunk }}/6)
+        shell: bash
         run: |
-          echo "Generating signals for timeframe: ${{ steps.timeframe.outputs.value }}"
-          
-          response=$(curl -s -w "\n%{http_code}" -X POST \
-            "${{ secrets.SUPABASE_URL }}/functions/v1/generate-signals" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            -d '{"timeframe":"${{ steps.timeframe.outputs.value }}"}')
-          
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-          
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
-          
-          # Check HTTP status first
-          if [ "$http_code" -ne 200 ]; then
+          set -euo pipefail
+          echo "Generating signals for timeframe: ${{ steps.timeframe.outputs.value }} chunk: ${{ matrix.chunk }}/6"
+          URL="${{ secrets.SUPABASE_URL }}/functions/v1/generate-signals"
+          PAYLOAD=$(jq -n \
+            --arg tf "${{ steps.timeframe.outputs.value }}" \
+            --argjson chunk "${{ matrix.chunk }}" \
+            --argjson chunks 6 \
+            '{timeframe:$tf, chunk:$chunk, chunks:$chunks}')
+          echo "POST $URL"
+          echo "Payload: $PAYLOAD"
+          for attempt in 1 2 3 4 5; do
+            echo "Attempt: $attempt"
+            http_code=$(curl -sS \
+              --connect-timeout 20 \
+              --max-time 180 \
+              -D /tmp/headers.txt \
+              -o /tmp/body.txt \
+              -X POST "$URL" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+              -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+              -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+              --data "$PAYLOAD" \
+              -w "%{http_code}" || true)
+            echo "HTTP Status: $http_code"
+            echo "---- Response body (first 1200 chars) ----"
+            head -c 1200 /tmp/body.txt || true
+            echo ""
+            echo "-----------------------------------------"
+            if [[ "$http_code" == "200" ]]; then
+              body="$(cat /tmp/body.txt)"
+              if ! echo "$body" | jq -e . >/dev/null 2>&1; then
+                echo "::error::Response is not valid JSON"
+                echo "Headers:"
+                cat /tmp/headers.txt || true
+                echo "Body:"
+                cat /tmp/body.txt || true
+                exit 1
+              fi
+              success=$(echo "$body" | jq -r '.success // false')
+              signalsCreated=$(echo "$body" | jq -r '.signalsCreated // 0')
+              processed=$(echo "$body" | jq -r '.processed // 0')
+              durationMs=$(echo "$body" | jq -r '.durationMs // 0')
+              error_msg=$(echo "$body" | jq -r '.error // "Unknown error"')
+              if [[ "$success" != "true" ]]; then
+                echo "::error::API returned success=false: $error_msg"
+                exit 1
+              fi
+              if [[ "$signalsCreated" -eq 0 ]]; then
+                echo "::notice::Chunk ${{ matrix.chunk }}: No valid setups (OK) - processed $processed pairs in ${durationMs}ms"
+              else
+                echo "::notice::Chunk ${{ matrix.chunk }}: Successfully created $signalsCreated signals from $processed pairs in ${durationMs}ms"
+              fi
+              echo "Signal generation completed successfully!"
+              exit 0
+            fi
+            if [[ "$http_code" == "429" || "$http_code" == "502" || "$http_code" == "503" || "$http_code" == "504" ]]; then
+              echo "Transient failure ($http_code). Retrying..."
+              sleep $((attempt * 10))
+              continue
+            fi
             echo "::error::Request failed with HTTP status $http_code"
+            echo "Headers:"
+            cat /tmp/headers.txt || true
+            echo "Body:"
+            cat /tmp/body.txt || true
             exit 1
-          fi
-          
-          # Parse JSON response
-          success=$(echo "$body" | jq -r '.success // false')
-          signalsCreated=$(echo "$body" | jq -r '.signalsCreated // 0')
-          error_msg=$(echo "$body" | jq -r '.error // "Unknown error"')
-          
-          # Check success field
-          if [ "$success" != "true" ]; then
-            echo "::error::API returned success=false: $error_msg"
-            exit 1
-          fi
-          
-          # SUCCESS - even if signalsCreated=0 (no valid setups this cycle)
-          if [ "$signalsCreated" -eq 0 ]; then
-            echo "::notice::No valid setups this cycle (OK) - 0 signals created"
-          else
-            echo "::notice::Successfully created $signalsCreated signals"
-          fi
-          
-          echo "Signal generation completed successfully!"
+          done
+          echo "::error::Failed after retries"
+          exit 1
