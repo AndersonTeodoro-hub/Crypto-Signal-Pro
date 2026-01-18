@@ -992,6 +992,7 @@ Analyze critically and use the analyze_signal function to respond.`
 // ============= MAIN =============
 
 Deno.serve(async (req) => {
+  const startTime = Date.now()
   console.log('generate-signals function called')
   
   if (req.method === 'OPTIONS') {
@@ -1014,6 +1015,8 @@ Deno.serve(async (req) => {
     // Parse body
     const body = await req.json()
     const timeframe = body.timeframe as '1H' | '4H'
+    const chunk = typeof body.chunk === 'number' ? body.chunk : 0
+    const chunks = typeof body.chunks === 'number' && body.chunks > 0 ? body.chunks : 1
     
     if (!timeframe || !['1H', '4H'].includes(timeframe)) {
       return new Response(
@@ -1022,7 +1025,15 @@ Deno.serve(async (req) => {
       )
     }
 
-    console.log(`Processing timeframe: ${timeframe}`)
+    // Validate chunk/chunks
+    if (chunk < 0 || chunk >= chunks) {
+      return new Response(
+        JSON.stringify({ error: `Invalid chunk ${chunk} for chunks ${chunks}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log(`Processing timeframe: ${timeframe}, chunk: ${chunk}/${chunks}`)
 
     // Create Supabase client with service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -1041,17 +1052,28 @@ Deno.serve(async (req) => {
       throw new Error('Failed to fetch pairs')
     }
 
-    console.log(`Found ${pairs.length} active pairs`)
+    console.log(`Found ${pairs.length} active pairs (total)`)
 
-    // === Quick OKX connection test for BTCUSDT ===
-    console.log('=== Running OKX connection test for BTCUSDT ===')
-    const testKlines = await fetchOKXKlines('BTCUSDT', timeframe, 220)
-    if (testKlines) {
-      console.log(`=== OKX test SUCCESS: ${testKlines.length} candles ===`)
-      console.log(`    First candle: ${new Date(testKlines[0].time).toISOString()}`)
-      console.log(`    Last candle: ${new Date(testKlines[testKlines.length - 1].time).toISOString()}`)
-    } else {
-      console.log('=== OKX test FAILED, will try Bybit fallback ===')
+    // Calculate chunk slice
+    const total = pairs.length
+    const size = Math.ceil(total / chunks)
+    const start = chunk * size
+    const end = Math.min(start + size, total)
+    const pairsSlice = pairs.slice(start, end)
+
+    console.log(`[generate-signals] timeframe=${timeframe} chunk=${chunk}/${chunks} total=${total} processing=${start}-${end} (${pairsSlice.length} pairs)`)
+
+    // === Quick OKX connection test for BTCUSDT (only on chunk 0) ===
+    if (chunk === 0) {
+      console.log('=== Running OKX connection test for BTCUSDT ===')
+      const testKlines = await fetchOKXKlines('BTCUSDT', timeframe, 220)
+      if (testKlines) {
+        console.log(`=== OKX test SUCCESS: ${testKlines.length} candles ===`)
+        console.log(`    First candle: ${new Date(testKlines[0].time).toISOString()}`)
+        console.log(`    Last candle: ${new Date(testKlines[testKlines.length - 1].time).toISOString()}`)
+      } else {
+        console.log('=== OKX test FAILED, will try Bybit fallback ===')
+      }
     }
 
     // ProcessResult interface for structured output
@@ -1102,7 +1124,7 @@ Deno.serve(async (req) => {
     }
     console.log('=== End normalizeSetupLevels test ===')
 
-    for (const pair of pairs) {
+    for (const pair of pairsSlice) {
       try {
         console.log(`Processing pair: ${pair.symbol}`)
         
@@ -1309,14 +1331,18 @@ Deno.serve(async (req) => {
     }
 
     const signalsCreated = results.filter(r => r.signal).length
-    console.log(`Completed: ${signalsCreated} signals created out of ${pairs.length} pairs`)
+    const durationMs = Date.now() - startTime
+    console.log(`Completed: chunk ${chunk}/${chunks}, ${signalsCreated} signals created out of ${pairsSlice.length} pairs in ${durationMs}ms`)
 
     return new Response(
       JSON.stringify({
         success: true,
         timeframe,
-        processed: pairs.length,
+        chunk,
+        chunks,
+        processed: pairsSlice.length,
         signalsCreated,
+        durationMs,
         results
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
