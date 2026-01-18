@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -7,16 +7,53 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Eye, EyeOff, Loader2, TrendingUp } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useReferralCapture } from '@/hooks/useReferralCapture';
 
 export default function Register() {
   const { signUp, user, loading: authLoading } = useAuth();
   const { t } = useLanguage();
+  const { toast } = useToast();
+  const { processReferral, hasPendingReferral } = useReferralCapture();
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [processingReferral, setProcessingReferral] = useState(false);
+
+  // Process referral when user becomes authenticated
+  useEffect(() => {
+    const handleReferral = async () => {
+      if (user && hasPendingReferral() && !processingReferral) {
+        setProcessingReferral(true);
+        
+        // Small delay to ensure profile is created
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const result = await processReferral();
+        
+        if (result.success) {
+          toast({
+            title: 'Referral applied successfully!',
+            description: 'Thank you for joining through a referral link.',
+          });
+        } else if (result.error && result.error !== 'No referral code' && result.error !== 'No user') {
+          toast({
+            title: 'Referral could not be applied',
+            description: result.error,
+            variant: 'destructive',
+          });
+        }
+        
+        setProcessingReferral(false);
+      }
+    };
+    
+    handleReferral();
+  }, [user, hasPendingReferral, processReferral, processingReferral, toast]);
 
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
