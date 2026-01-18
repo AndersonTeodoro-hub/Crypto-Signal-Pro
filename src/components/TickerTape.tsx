@@ -2,21 +2,11 @@ import { useEffect, useRef, memo } from 'react';
 
 function TickerTapeComponent() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const scriptLoaded = useRef(false);
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
-
-    // Clear any existing content to prevent duplicates
-    container.innerHTML = '';
-
-    // Create widget container
-    const widgetContainer = document.createElement('div');
-    widgetContainer.className = 'tradingview-widget-container';
-    
-    const widgetDiv = document.createElement('div');
-    widgetDiv.className = 'tradingview-widget-container__widget';
-    widgetContainer.appendChild(widgetDiv);
+    if (!container || scriptLoaded.current) return;
 
     // Create and configure the script
     const script = document.createElement('script');
@@ -48,23 +38,19 @@ function TickerTapeComponent() {
       locale: "en"
     });
 
-    widgetContainer.appendChild(script);
-    container.appendChild(widgetContainer);
+    container.appendChild(script);
+    scriptLoaded.current = true;
 
-    // Cleanup on unmount
     return () => {
-      if (container) {
-        container.innerHTML = '';
-      }
+      scriptLoaded.current = false;
     };
   }, []);
 
   return (
-    <div 
-      ref={containerRef}
-      className="w-full overflow-hidden border-b border-border/30"
-      style={{ height: '46px' }}
-    />
+    <div className="tradingview-widget-container w-full overflow-hidden border-b border-border/30">
+      <div className="tradingview-widget-container__widget" style={{ height: '46px' }} />
+      <div ref={containerRef} />
+    </div>
   );
 }
 
