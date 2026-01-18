@@ -48,6 +48,272 @@ interface SignalSetup {
   meta: Record<string, unknown>
 }
 
+// ============= DATA FETCHING =============
+
+interface KlineData {
+  time: number
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
+const TIMEFRAME_MAP: Record<string, { bybit: string; okx: string }> = {
+  '1H': { bybit: '60', okx: '1H' },
+  '4H': { bybit: '240', okx: '4H' }
+}
+
+const FETCH_TIMEOUT = 8000 // 8 seconds
+const MAX_RETRIES = 2
+const RETRY_DELAYS = [400, 900] // ms
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeout: number = FETCH_TIMEOUT
+): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout)
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    })
+    return response
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit = {}
+): Promise<Response | null> {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetchWithTimeout(url, options)
+      
+      // Retry only for 429 (rate limit) and 5xx (server errors)
+      if (response.status === 429 || response.status >= 500) {
+        if (attempt < MAX_RETRIES) {
+          console.log(`[Retry] Attempt ${attempt + 1}/${MAX_RETRIES} after ${RETRY_DELAYS[attempt]}ms (status: ${response.status})`)
+          await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]))
+          continue
+        }
+      }
+      
+      return response
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error(`[Timeout] Request timeout (${FETCH_TIMEOUT}ms)`)
+      } else {
+        console.error(`[Fetch] Error: ${error}`)
+      }
+      
+      if (attempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]))
+        continue
+      }
+    }
+  }
+  
+  return null
+}
+
+async function fetchBybitKlines(
+  symbol: string,
+  timeframe: '1H' | '4H',
+  limit: number = 220
+): Promise<KlineData[] | null> {
+  // Bybit uses format "BTCUSDT" (no slash)
+  const bybitSymbol = symbol.replace('/', '')
+  const interval = TIMEFRAME_MAP[timeframe].bybit
+  
+  const url = `https://api.bybit.com/v5/market/kline?category=spot&symbol=${bybitSymbol}&interval=${interval}&limit=${limit}`
+  
+  console.log(`[Bybit] Fetching ${bybitSymbol} ${timeframe} (interval=${interval}, limit=${limit})`)
+  
+  try {
+    const response = await fetchWithRetry(url, {
+      headers: { 'User-Agent': 'CryptoSignalPro/1.0' }
+    })
+    
+    if (!response) {
+      console.error('[Bybit] All retries failed')
+      return null
+    }
+    
+    if (!response.ok) {
+      console.error(`[Bybit] API error: ${response.status}`)
+      return null
+    }
+    
+    const data = await response.json()
+    
+    // Validate response
+    if (data.retCode !== 0) {
+      console.error(`[Bybit] API response error: retCode=${data.retCode}, retMsg=${data.retMsg}`)
+      return null
+    }
+    
+    if (!data.result?.list || data.result.list.length === 0) {
+      console.error('[Bybit] Empty result.list')
+      return null
+    }
+    
+    // Bybit returns in descending order -> reverse to chronological
+    const klines = data.result.list.reverse()
+    
+    console.log(`[Bybit] Success: ${klines.length} candles fetched`)
+    
+    // Bybit format: [startTime, open, high, low, close, volume, turnover]
+    // Convert strings to numbers, time already in ms
+    return klines.map((k: string[]) => ({
+      time: Number(k[0]),
+      open: Number(k[1]),
+      high: Number(k[2]),
+      low: Number(k[3]),
+      close: Number(k[4]),
+      volume: Number(k[5])
+    }))
+    
+  } catch (error) {
+    console.error(`[Bybit] Unexpected error: ${error}`)
+    return null
+  }
+}
+
+async function fetchOKXKlines(
+  symbol: string,
+  timeframe: '1H' | '4H',
+  limit: number = 220
+): Promise<KlineData[] | null> {
+  // OKX uses format "BTC-USDT" (with hyphen)
+  const okxSymbol = symbol.replace('/', '-')
+  const bar = TIMEFRAME_MAP[timeframe].okx
+  
+  console.log(`[OKX] Fetching ${okxSymbol} ${timeframe} (bar=${bar}, target=${limit} candles)`)
+  
+  const allCandles: KlineData[] = []
+  let after: string | null = null
+  const maxPerRequest = 100 // OKX limit per request
+  
+  try {
+    // Paginate until reaching desired limit
+    while (allCandles.length < limit) {
+      let url = `https://www.okx.com/api/v5/market/candles?instId=${okxSymbol}&bar=${bar}&limit=${maxPerRequest}`
+      
+      // Use 'after' parameter for pagination (timestamp of oldest candle)
+      if (after) {
+        url += `&after=${after}`
+      }
+      
+      const response = await fetchWithRetry(url, {
+        headers: { 'User-Agent': 'CryptoSignalPro/1.0' }
+      })
+      
+      if (!response) {
+        console.error('[OKX] All retries failed')
+        break
+      }
+      
+      if (!response.ok) {
+        console.error(`[OKX] API error: ${response.status}`)
+        break
+      }
+      
+      const data = await response.json()
+      
+      // Validate response
+      if (data.code !== '0') {
+        console.error(`[OKX] API response error: code=${data.code}, msg=${data.msg}`)
+        break
+      }
+      
+      if (!data.data || data.data.length === 0) {
+        console.log('[OKX] No more data available')
+        break
+      }
+      
+      // OKX returns in descending order
+      // Format: [ts, open, high, low, close, vol, volCcy, volCcyQuote, confirm]
+      const candles = data.data.map((k: string[]) => ({
+        time: Number(k[0]),
+        open: Number(k[1]),
+        high: Number(k[2]),
+        low: Number(k[3]),
+        close: Number(k[4]),
+        volume: Number(k[5])
+      }))
+      
+      // Avoid duplicates using Set of timestamps
+      const existingTimes = new Set(allCandles.map(c => c.time))
+      const newCandles = candles.filter((c: KlineData) => !existingTimes.has(c.time))
+      
+      if (newCandles.length === 0) {
+        console.log('[OKX] No new candles (all duplicates)')
+        break
+      }
+      
+      allCandles.push(...newCandles)
+      
+      // Get oldest timestamp for next page
+      // OKX 'after' = fetch candles BEFORE this timestamp
+      const oldestTime = Math.min(...candles.map((c: KlineData) => c.time))
+      after = String(oldestTime)
+      
+      console.log(`[OKX] Fetched ${newCandles.length} candles, total: ${allCandles.length}`)
+      
+      // Small delay between requests to avoid rate limiting
+      if (allCandles.length < limit) {
+        await new Promise(r => setTimeout(r, 100))
+      }
+    }
+    
+    if (allCandles.length === 0) {
+      console.error('[OKX] No candles fetched')
+      return null
+    }
+    
+    // Sort by time (chronological) and limit
+    const sortedCandles = allCandles
+      .sort((a, b) => a.time - b.time)
+      .slice(-limit) // Get the last N candles
+    
+    console.log(`[OKX] Success: ${sortedCandles.length} candles (after pagination & sort)`)
+    
+    return sortedCandles
+    
+  } catch (error) {
+    console.error(`[OKX] Unexpected error: ${error}`)
+    return null
+  }
+}
+
+async function fetchKlines(
+  symbol: string,
+  timeframe: '1H' | '4H',
+  limit: number = 220
+): Promise<KlineData[] | null> {
+  // Try Bybit first
+  const bybitData = await fetchBybitKlines(symbol, timeframe, limit)
+  if (bybitData && bybitData.length > 0) {
+    return bybitData
+  }
+  
+  // Fallback to OKX
+  console.log('[Fallback] Bybit failed, trying OKX...')
+  const okxData = await fetchOKXKlines(symbol, timeframe, limit)
+  if (okxData && okxData.length > 0) {
+    return okxData
+  }
+  
+  console.error(`[Error] All market data APIs failed for ${symbol}`)
+  return null
+}
+
 // ============= INDICATORS =============
 
 function calculateEMA(prices: number[], period: number): number[] {
@@ -667,34 +933,42 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${pairs.length} active pairs`)
 
+    // === Quick Bybit connection test for BTC/USDT ===
+    console.log('=== Running Bybit connection test for BTC/USDT ===')
+    const testKlines = await fetchBybitKlines('BTC/USDT', timeframe, 220)
+    if (testKlines) {
+      console.log(`=== Bybit test SUCCESS: ${testKlines.length} candles ===`)
+      console.log(`    First candle: ${new Date(testKlines[0].time).toISOString()}`)
+      console.log(`    Last candle: ${new Date(testKlines[testKlines.length - 1].time).toISOString()}`)
+    } else {
+      console.log('=== Bybit test FAILED, will rely on OKX fallback ===')
+    }
+
     const results: { pair: string, signal?: SignalSetup, error?: string }[] = []
-    const binanceInterval = timeframe === '1H' ? '1h' : '4h'
 
     for (const pair of pairs) {
       try {
         console.log(`Processing pair: ${pair.symbol}`)
         
-        // Fetch candles from Binance
-        const binanceSymbol = pair.symbol.replace('/', '')
-        const url = `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${binanceInterval}&limit=220`
-        
-        const response = await fetch(url)
-        if (!response.ok) {
-          console.error(`Binance API error for ${pair.symbol}: ${response.status}`)
-          results.push({ pair: pair.symbol, error: `Binance API error: ${response.status}` })
+        // Fetch candles from Bybit (fallback: OKX)
+        const klineData = await fetchKlines(pair.symbol, timeframe, 220)
+
+        if (!klineData || klineData.length === 0) {
+          console.error(`Failed to fetch klines for ${pair.symbol}`)
+          results.push({ pair: pair.symbol, error: 'All market data APIs failed (Bybit + OKX)' })
           continue
         }
-        
-        const klines = await response.json()
-        
-        // Transform to candles
-        const candles: Candle[] = klines.map((k: unknown[]) => ({
-          open_time: k[0] as number,
-          open: parseFloat(k[1] as string),
-          high: parseFloat(k[2] as string),
-          low: parseFloat(k[3] as string),
-          close: parseFloat(k[4] as string),
-          volume: parseFloat(k[5] as string)
+
+        console.log(`[${pair.symbol}] Using ${klineData.length} candles`)
+
+        // Transform to internal Candle format
+        const candles: Candle[] = klineData.map(k => ({
+          open_time: k.time,
+          open: k.open,
+          high: k.high,
+          low: k.low,
+          close: k.close,
+          volume: k.volume
         }))
 
         // Upsert candles to database
