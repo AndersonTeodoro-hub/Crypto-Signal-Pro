@@ -1,0 +1,37 @@
+name: Update Signal Outcomes
+
+on:
+  schedule:
+    # Every hour at minute 9
+    - cron: '9 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  update-outcomes:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Update Signal Outcomes
+        run: |
+          echo "Updating signal outcomes..."
+          
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ secrets.SUPABASE_URL }}/functions/v1/update-signal-outcomes" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -d '{"limit":200}')
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+          
+          if [ "$http_code" -ne 200 ]; then
+            echo "Error: Request failed with status $http_code"
+            exit 1
+          fi
+          
+          echo "Outcome update completed successfully!"

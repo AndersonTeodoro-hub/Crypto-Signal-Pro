@@ -1,8 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, TrendingUp, TrendingDown, Sparkles } from 'lucide-react';
+import { ArrowRight, TrendingDown, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { LatestWinSignalCard } from './LatestWinSignalCard';
 
 export function HeroSection() {
   const { t } = useLanguage();
@@ -68,49 +69,11 @@ export function HeroSection() {
             </div>
           </div>
 
-          {/* Right Content - Signal Mockup */}
+          {/* Right Content - Dynamic Signal Card */}
           <div className="flex justify-center">
             <div className="relative">
-              {/* Glow Effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/40 to-accent/40 rounded-2xl blur-2xl transform scale-110" />
-              
-              {/* Signal Card */}
-              <div className="glass rounded-2xl p-6 relative animate-float border border-success/30">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-success/20">
-                      <TrendingUp className="h-6 w-6 text-success" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg">BTC/USDT</h3>
-                      <p className="text-sm text-muted-foreground">Bitcoin</p>
-                    </div>
-                  </div>
-                  <Badge className="bg-success/20 text-success border-success/30">
-                    {t('signal.buy')}
-                  </Badge>
-                </div>
-
-                <div className="space-y-3 mb-4">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t('signal.entry')}</span>
-                    <span className="font-mono">$67,450.00</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t('signal.stopLoss')}</span>
-                    <span className="font-mono text-destructive">$66,200.00</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t('signal.takeProfit')}</span>
-                    <span className="font-mono text-success">$70,000.00</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-4 border-t border-border">
-                  <Badge variant="outline">1H</Badge>
-                  <span className="text-sm text-muted-foreground">{t('signal.grade')}: A+</span>
-                </div>
-              </div>
+              {/* Main Signal Card - Latest Win */}
+              <LatestWinSignalCard />
 
               {/* Secondary Card */}
               <div className="absolute -bottom-6 -left-6 glass rounded-xl p-4 border border-destructive/30 animate-float" style={{ animationDelay: '0.5s' }}>
