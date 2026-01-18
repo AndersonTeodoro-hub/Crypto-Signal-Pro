@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_grants: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          notes: string | null
+          plan: string
+          source: string
+          starts_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          notes?: string | null
+          plan: string
+          source?: string
+          starts_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          notes?: string | null
+          plan?: string
+          source?: string
+          starts_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "access_grants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       allowed_pairs: {
         Row: {
           created_at: string
@@ -93,8 +134,11 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          is_admin: boolean
           language: string
           plan: string
+          referral_code: string
+          referred_by: string | null
           updated_at: string
           user_id: string
         }
@@ -102,8 +146,11 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          is_admin?: boolean
           language?: string
           plan?: string
+          referral_code: string
+          referred_by?: string | null
           updated_at?: string
           user_id: string
         }
@@ -111,12 +158,60 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          is_admin?: boolean
           language?: string
           plan?: string
+          referral_code?: string
+          referred_by?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      referrals: {
+        Row: {
+          approved_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          referee_user_id: string
+          referrer_user_id: string
+          status: string
+        }
+        Insert: {
+          approved_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          referee_user_id: string
+          referrer_user_id: string
+          status?: string
+        }
+        Update: {
+          approved_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          referee_user_id?: string
+          referrer_user_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_referee_user_id_fkey"
+            columns: ["referee_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_user_id_fkey"
+            columns: ["referrer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       signals: {
         Row: {

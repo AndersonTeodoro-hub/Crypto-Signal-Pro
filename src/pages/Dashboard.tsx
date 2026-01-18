@@ -14,14 +14,15 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useUserPlan } from '@/hooks/useUserPlan';
 import { Badge } from '@/components/ui/badge';
 import { LanguageSelector } from '@/components/LanguageSelector';
-import type { SignalWithPair, UserSettings } from '@/types/database';
+import { playSignalSound, showBrowserNotification } from '@/lib/sounds';
+import type { SignalWithPair } from '@/types/database';
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { plan, loading: planLoading, canAccessTimeframe, limits, isFree } = useUserPlan();
+  const { effectivePlan, loading: planLoading, canAccessTimeframe, isFree } = useUserPlan();
   
   const [selectedPair, setSelectedPair] = useState<string | null>(null);
   const [timeframe, setTimeframe] = useState<string>('4H');
@@ -133,10 +134,28 @@ export default function Dashboard() {
 
           if (data && data.timeframe === timeframe) {
             setSignals((prev) => [data as SignalWithPair, ...prev]);
+            
+            const signalData = data as SignalWithPair;
+            const pairSymbol = signalData.allowed_pairs?.symbol || 'Signal';
+            const direction = signalData.direction === 'LONG' ? 'BUY' : 'SELL';
+            
+            // Show toast
             toast({
               title: `🚀 ${t('dashboard.newSignal')}`,
-              description: `${(data as SignalWithPair).allowed_pairs?.symbol} - ${data.direction === 'LONG' ? t('signal.buy') : t('signal.sell')}`,
+              description: `${pairSymbol} - ${direction} (${signalData.timeframe}) Grade ${signalData.grade}`,
             });
+            
+            // Play sound if enabled
+            const soundEnabled = localStorage.getItem('soundEnabled') === 'true';
+            if (soundEnabled) {
+              playSignalSound();
+            }
+            
+            // Show browser notification
+            showBrowserNotification(
+              `New Signal: ${pairSymbol}`,
+              `${direction} (${signalData.timeframe}) - Grade ${signalData.grade}`
+            );
           }
         }
       )
@@ -234,7 +253,7 @@ export default function Dashboard() {
             <p className="text-muted-foreground">{user?.email}</p>
           </div>
           <Badge variant="outline" className="capitalize">
-            {plan} {t('dashboard.plan')}
+            {effectivePlan} {t('dashboard.plan')}
           </Badge>
         </div>
 
