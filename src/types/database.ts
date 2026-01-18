@@ -2,6 +2,9 @@ export interface Profile {
   id: string;
   user_id: string;
   email: string | null;
+  username: string | null;
+  avatar_url: string | null;
+  bio: string | null;
   plan: 'free' | 'basic' | 'pro';
   referral_code: string;
   referred_by: string | null;
