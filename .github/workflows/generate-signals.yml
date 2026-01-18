@@ -22,6 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Determine Timeframe
         id: timeframe
         run: |
@@ -51,9 +54,28 @@ jobs:
           echo "HTTP Status: $http_code"
           echo "Response: $body"
           
+          # Check HTTP status first
           if [ "$http_code" -ne 200 ]; then
-            echo "Error: Request failed with status $http_code"
+            echo "::error::Request failed with HTTP status $http_code"
             exit 1
+          fi
+          
+          # Parse JSON response
+          success=$(echo "$body" | jq -r '.success // false')
+          signalsCreated=$(echo "$body" | jq -r '.signalsCreated // 0')
+          error_msg=$(echo "$body" | jq -r '.error // "Unknown error"')
+          
+          # Check success field
+          if [ "$success" != "true" ]; then
+            echo "::error::API returned success=false: $error_msg"
+            exit 1
+          fi
+          
+          # SUCCESS - even if signalsCreated=0 (no valid setups this cycle)
+          if [ "$signalsCreated" -eq 0 ]; then
+            echo "::notice::No valid setups this cycle (OK) - 0 signals created"
+          else
+            echo "::notice::Successfully created $signalsCreated signals"
           fi
           
           echo "Signal generation completed successfully!"

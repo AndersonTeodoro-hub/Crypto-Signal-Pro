@@ -316,7 +316,8 @@
     "viewChart": "Ver Gráfico",
     "latestWin": "Última Victoria Verificada",
     "verifiedResult": "Resultado Verificado",
-    "disclaimer": "Los resultados pasados no garantizan rendimientos futuros."
+    "disclaimer": "Los resultados pasados no garantizan rendimientos futuros.",
+    "byTimeframe": "Rendimiento por Timeframe"
   },
   "common": {
     "loading": "Cargando...",

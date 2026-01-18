@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Share2, Copy, Check, Gift, Users } from 'lucide-react';
+import { getBaseUrl } from '@/lib/urls';
 
 interface ShareReferralButtonProps {
   referralCode: string;
@@ -15,7 +16,7 @@ export function ShareReferralButton({ referralCode, referralsCount = 0 }: ShareR
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
 
-  const referralLink = `${window.location.origin}/?ref=${referralCode}`;
+  const referralLink = `${getBaseUrl()}/?ref=${referralCode}`;
   const shareText = t('share.shareText');
 
   const handleCopy = async () => {
