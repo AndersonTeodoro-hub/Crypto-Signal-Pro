@@ -51,6 +51,12 @@ export default function History() {
     const tp2 = wins.filter(s => s.outcome_tp === 2).length;
     const tp3 = wins.filter(s => s.outcome_tp === 3).length;
     
+    // Timeframe breakdown
+    const wins1H = wins.filter(s => s.timeframe === '1H').length;
+    const losses1H = losses.filter(s => s.timeframe === '1H').length;
+    const wins4H = wins.filter(s => s.timeframe === '4H').length;
+    const losses4H = losses.filter(s => s.timeframe === '4H').length;
+    
     // Average PnL
     const winsPnl = wins.reduce((sum, s) => sum + (s.pnl_percent || 0), 0);
     const lossesPnl = losses.reduce((sum, s) => sum + (s.pnl_percent || 0), 0);
@@ -65,6 +71,7 @@ export default function History() {
       active: active.length,
       winRate,
       tp1, tp2, tp3,
+      wins1H, losses1H, wins4H, losses4H,
       avgWinPnl,
       avgLossPnl
     };
@@ -284,6 +291,29 @@ export default function History() {
                   <Badge variant="outline" className="bg-success/10">TP1: {stats.tp1}</Badge>
                   <Badge variant="outline" className="bg-success/20">TP2: {stats.tp2}</Badge>
                   <Badge variant="outline" className="bg-success/30">TP3: {stats.tp3}</Badge>
+                </div>
+              </div>
+            )}
+            
+            {/* Timeframe Breakdown */}
+            {(stats.wins > 0 || stats.losses > 0) && (
+              <div className="mt-4 pt-4 border-t border-border/50">
+                <p className="text-sm text-muted-foreground mb-2">{t('trackRecord.byTimeframe')}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg bg-muted/20">
+                    <p className="font-medium text-sm mb-1">1H</p>
+                    <div className="flex gap-3 text-sm">
+                      <span className="text-success">W: {stats.wins1H}</span>
+                      <span className="text-destructive">L: {stats.losses1H}</span>
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/20">
+                    <p className="font-medium text-sm mb-1">4H</p>
+                    <div className="flex gap-3 text-sm">
+                      <span className="text-success">W: {stats.wins4H}</span>
+                      <span className="text-destructive">L: {stats.losses4H}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

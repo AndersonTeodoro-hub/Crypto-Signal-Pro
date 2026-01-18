@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PLANS, type PlanType } from '@/lib/plans';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { useUserPlan } from '@/hooks/useUserPlan';
+import { getBaseUrl } from '@/lib/urls';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -176,7 +177,7 @@ export default function Settings() {
   const handleCopyReferralLink = async () => {
     if (!referralCode) return;
     
-    const link = `${window.location.origin}/?ref=${referralCode}`;
+    const link = `${getBaseUrl()}/?ref=${referralCode}`;
     
     try {
       await navigator.clipboard.writeText(link);
@@ -193,7 +194,7 @@ export default function Settings() {
   const handleShareReferralLink = async () => {
     if (!referralCode) return;
     
-    const link = `${window.location.origin}/?ref=${referralCode}`;
+    const link = `${getBaseUrl()}/?ref=${referralCode}`;
     
     if (navigator.share) {
       try {
@@ -465,7 +466,7 @@ export default function Settings() {
                 <Label className="text-muted-foreground">Your Referral Link</Label>
                 <div className="mt-2 flex gap-2">
                   <Input 
-                    value={referralCode ? `${window.location.origin}/?ref=${referralCode}` : 'Loading...'} 
+                    value={referralCode ? `${getBaseUrl()}/?ref=${referralCode}` : 'Loading...'} 
                     disabled 
                     className="bg-background/50 font-mono text-sm" 
                   />

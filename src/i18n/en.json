@@ -310,7 +310,8 @@
     "viewChart": "View Chart",
     "latestWin": "Latest Verified Win",
     "verify": "Verify on Chart",
-    "disclaimer": "Past performance does not guarantee future results. Results verified using historical price data."
+    "disclaimer": "Past performance does not guarantee future results. Results verified using historical price data.",
+    "byTimeframe": "Performance by Timeframe"
   },
   "common": {
     "loading": "Loading...",
