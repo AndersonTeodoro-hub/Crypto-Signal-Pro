@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { ShareReferralButton } from '@/components/ShareReferralButton';
 
 interface ProfileData {
   username: string | null;
@@ -424,6 +425,16 @@ export default function Profile() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Share Referral */}
+        {profile?.referral_code && (
+          <div className="mb-6">
+            <ShareReferralButton 
+              referralCode={profile.referral_code} 
+              referralsCount={stats.referralsCount}
+            />
+          </div>
+        )}
 
         {/* Admin Link */}
         {isAdmin && (

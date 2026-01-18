@@ -367,6 +367,17 @@
     "description": "La página que buscas no existe o ha sido movida.",
     "backHome": "Volver al Inicio"
   },
+  "share": {
+    "title": "Invitar Amigos",
+    "subtitle": "Comparte y gana días Pro gratis",
+    "yourCode": "Tu Código",
+    "yourLink": "Tu Enlace",
+    "copyLink": "Copiar Enlace",
+    "share": "Compartir",
+    "copied": "¡Enlace copiado!",
+    "shareText": "¡Descubre señales de cripto con SMC! Usa mi código para empezar:",
+    "friendsJoined": "amigos se unieron"
+  },
   "language": {
     "en": "English",
     "pt": "Português",

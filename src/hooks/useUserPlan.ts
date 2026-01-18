@@ -69,6 +69,15 @@ export function useUserPlan(): UserPlanData {
       setIsAdmin(profile?.is_admin || false);
       setReferralCode(profile?.referral_code || null);
 
+      // ADMIN OVERRIDE: Admins get full Pro access automatically
+      if (profile?.is_admin) {
+        setEffectivePlan('pro');
+        setPlanSource('grant');
+        setGrantExpiresAt(null);
+        setLoading(false);
+        return;
+      }
+
       // Check if user has Stripe subscription (plan !== 'free')
       if (basePlan !== 'free') {
         setEffectivePlan(basePlan);

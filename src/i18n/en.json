@@ -361,6 +361,17 @@
     "description": "The page you're looking for doesn't exist or has been moved.",
     "backHome": "Back to Home"
   },
+  "share": {
+    "title": "Invite Friends",
+    "subtitle": "Share and earn free Pro days",
+    "yourCode": "Your Code",
+    "yourLink": "Your Link",
+    "copyLink": "Copy Link",
+    "share": "Share",
+    "copied": "Link copied!",
+    "shareText": "Discover crypto signals with SMC! Use my code to start:",
+    "friendsJoined": "friends joined"
+  },
   "language": {
     "en": "English",
     "pt": "Português",
