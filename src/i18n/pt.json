@@ -167,7 +167,14 @@
     "upgradeBasic30Days": "Faça upgrade para Básico (30 dias) ou Pro (ilimitado)",
     "upgradePro": "Faça upgrade para Pro para histórico ilimitado",
     "direction": "Direção",
-    "timeframe": "Timeframe"
+    "timeframe": "Timeframe",
+    "allOutcomes": "Todos os Resultados",
+    "performance": "Desempenho",
+    "winRate": "Taxa de Acerto",
+    "wins": "Vitórias",
+    "losses": "Perdas",
+    "avgPnl": "PnL Médio",
+    "disclaimer": "Resultados passados não garantem desempenho futuro. Resultados verificados usando dados históricos de preços."
   },
   "settings": {
     "title": "Configurações",
@@ -230,7 +237,25 @@
     "generationError": "Erro na Geração",
     "sessionExpired": "Sessão expirada. Faça login novamente.",
     "andMore": "... e mais {count} pares",
-    "signals": "sinais"
+    "signals": "sinais",
+    "growthMetrics": "Métricas de Crescimento",
+    "totalUsers": "Total de Usuários",
+    "usersByPlan": "Por Plano",
+    "activeGrants": "Acessos Ativos",
+    "pendingReferrals": "Indicações Pendentes",
+    "approvedReferrals": "Indicações Aprovadas",
+    "signalPerformance": "Desempenho dos Sinais",
+    "last7Days": "Últimos 7 Dias",
+    "last30Days": "Últimos 30 Dias",
+    "totalSignals": "Total de Sinais",
+    "byTimeframe": "Por Timeframe",
+    "outcomeUpdater": "Atualizador de Resultados",
+    "runOutcomeUpdater": "Executar Atualização",
+    "runOutcomeUpdaterDescription": "Verificar sinais ativos para TP/SL atingidos",
+    "updatingOutcomes": "Atualizando...",
+    "outcomesUpdated": "Resultados Atualizados",
+    "outcomesUpdatedDescription": "Processados {processed}, atualizados {updated}, expirados {expired}",
+    "outcomeUpdateError": "Erro na Atualização"
   },
   "signal": {
     "buy": "COMPRA",
@@ -245,6 +270,23 @@
     "active": "Ativo",
     "expired": "Expirado",
     "new": "Novo"
+  },
+  "trackRecord": {
+    "winRate": "Taxa de Acerto",
+    "wins": "Vitórias",
+    "losses": "Perdas",
+    "expired": "Expirados",
+    "active": "Ativos",
+    "hit": "ATINGIDO",
+    "slHit": "STOP ATINGIDO",
+    "tpDistribution": "Distribuição de TP",
+    "performance": "Desempenho",
+    "outcome": "Resultado",
+    "closedAt": "Fechado",
+    "viewChart": "Ver Gráfico",
+    "latestWin": "Última Vitória Verificada",
+    "verifiedResult": "Resultado Verificado",
+    "disclaimer": "Resultados passados não garantem desempenho futuro."
   },
   "common": {
     "loading": "Carregando...",
