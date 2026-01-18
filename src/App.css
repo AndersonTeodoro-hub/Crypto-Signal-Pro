@@ -1,28 +1,3 @@
-/* Crypto Ticker Animation */
-.ticker-container {
-  width: 100%;
-  overflow: hidden;
-}
-
-.ticker-content {
-  display: flex;
-  animation: ticker-scroll 30s linear infinite;
-  width: max-content;
-}
-
-@keyframes ticker-scroll {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-.ticker-container:hover .ticker-content {
-  animation-play-state: paused;
-}
-
 /* Preserve existing styles */
 #root {
   max-width: 1280px;

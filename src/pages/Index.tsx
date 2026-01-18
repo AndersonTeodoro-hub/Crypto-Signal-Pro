@@ -4,13 +4,13 @@ import { HeroSection } from '@/components/landing/HeroSection';
 import { HowItWorksSection } from '@/components/landing/HowItWorksSection';
 import { FeaturesSection } from '@/components/landing/FeaturesSection';
 import { PricingSection } from '@/components/landing/PricingSection';
-import { CryptoTicker } from '@/components/landing/CryptoTicker';
+import { TickerTape } from '@/components/TickerTape';
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <CryptoTicker />
+      <TickerTape />
       <main>
         <HeroSection />
         <HowItWorksSection />
