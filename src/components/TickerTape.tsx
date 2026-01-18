@@ -47,9 +47,11 @@ function TickerTapeComponent() {
   }, []);
 
   return (
-    <div className="tradingview-widget-container w-full overflow-hidden border-b border-border/30">
-      <div className="tradingview-widget-container__widget" style={{ height: '46px' }} />
-      <div ref={containerRef} />
+    <div className="fixed left-0 right-0 top-16 z-40 bg-background/95 backdrop-blur-lg border-b border-border/30">
+      <div className="tradingview-widget-container w-full overflow-hidden">
+        <div className="tradingview-widget-container__widget" style={{ height: '46px' }} />
+        <div ref={containerRef} />
+      </div>
     </div>
   );
 }
