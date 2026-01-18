@@ -9,7 +9,7 @@ export function HeroSection() {
   const { t } = useLanguage();
 
   return (
-    <section className="min-h-[calc(100vh-110px)] flex items-center justify-center relative overflow-hidden">
+    <section className="min-h-[calc(100vh-110px)] flex items-start pt-8 md:items-center md:pt-0 justify-center relative overflow-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse-glow" />

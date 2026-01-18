@@ -8,10 +8,10 @@ import { TickerTape } from '@/components/TickerTape';
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background pt-16">
+    <div className="min-h-screen bg-background">
       <Header />
       <TickerTape />
-      <main>
+      <main className="pt-[110px]">
         <HeroSection />
         <HowItWorksSection />
         <FeaturesSection />
