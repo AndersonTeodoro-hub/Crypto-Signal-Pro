@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, LogOut, Settings, BarChart3, History, Menu, Lock, Crown } from 'lucide-react';
+import { TrendingUp, LogOut, Settings, BarChart3, History, Menu, Lock, Crown, User, Shield } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PairSelector } from '@/components/signals/PairSelector';
 import { SignalCard } from '@/components/signals/SignalCard';
@@ -22,7 +22,7 @@ export default function Dashboard() {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { effectivePlan, loading: planLoading, canAccessTimeframe, isFree } = useUserPlan();
+  const { effectivePlan, loading: planLoading, canAccessTimeframe, isFree, isAdmin } = useUserPlan();
   
   const [selectedPair, setSelectedPair] = useState<string | null>(null);
   const [timeframe, setTimeframe] = useState<string>('4H');
@@ -201,10 +201,20 @@ export default function Dashboard() {
           <History className="h-5 w-5" />
           {t('nav.history')}
         </Link>
+        <Link to="/profile" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
+          <User className="h-5 w-5" />
+          {t('nav.profile')}
+        </Link>
         <Link to="/settings" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <Settings className="h-5 w-5" />
           {t('nav.settings')}
         </Link>
+        {isAdmin && (
+          <Link to="/admin" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
+            <Shield className="h-5 w-5" />
+            {t('nav.admin')}
+          </Link>
+        )}
       </nav>
 
       <div className="absolute bottom-4 left-4 right-4 space-y-4">
