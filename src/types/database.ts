@@ -3,6 +3,10 @@ export interface Profile {
   user_id: string;
   email: string | null;
   plan: 'free' | 'basic' | 'pro';
+  referral_code: string;
+  referred_by: string | null;
+  is_admin: boolean;
+  language: string;
   created_at: string;
   updated_at: string;
 }
@@ -70,4 +74,30 @@ export interface UserSignal {
   is_read: boolean;
   is_notified: boolean;
   created_at: string;
+}
+
+export interface AccessGrant {
+  id: string;
+  user_id: string;
+  plan: 'free' | 'basic' | 'pro';
+  source: string;
+  starts_at: string;
+  expires_at: string;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface Referral {
+  id: string;
+  referrer_user_id: string;
+  referee_user_id: string;
+  status: 'pending' | 'approved' | 'rejected' | 'rewarded';
+  created_at: string;
+  approved_at: string | null;
+  notes: string | null;
+}
+
+export interface ReferralWithProfiles extends Referral {
+  referrer_profile?: { email: string | null };
+  referee_profile?: { email: string | null };
 }

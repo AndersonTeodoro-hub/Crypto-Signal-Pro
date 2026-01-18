@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
-
+import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user } = useAuth();
@@ -55,6 +55,7 @@ export function Header() {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
+            <InstallPrompt variant="button" />
             <LanguageSelector />
             {user ? (
               <Link to="/dashboard">

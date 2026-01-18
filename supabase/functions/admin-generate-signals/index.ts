@@ -50,28 +50,28 @@ Deno.serve(async (req) => {
 
     console.log(`User ${userEmail} requesting signal generation`)
 
-    // Check if user is pro or admin
+    // Check if user is admin
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('plan, email')
+      .select('is_admin, email')
       .eq('user_id', userId)
       .single()
 
     if (profileError) {
       console.error('Profile error:', profileError)
       return new Response(
-        JSON.stringify({ error: 'Perfil não encontrado' }),
+        JSON.stringify({ error: 'Profile not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    const isPro = profile.plan === 'pro'
+    const isAdmin = profile.is_admin === true
     const isWhitelisted = ADMIN_EMAILS.includes(userEmail) || ADMIN_EMAILS.includes(profile.email || '')
 
-    if (!isPro && !isWhitelisted) {
-      console.log(`Access denied for ${userEmail} (plan: ${profile.plan})`)
+    if (!isAdmin && !isWhitelisted) {
+      console.log(`Access denied for ${userEmail} (is_admin: ${profile.is_admin})`)
       return new Response(
-        JSON.stringify({ error: 'Acesso negado. Apenas usuários PRO podem gerar sinais manualmente.' }),
+        JSON.stringify({ error: 'Admin access required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
