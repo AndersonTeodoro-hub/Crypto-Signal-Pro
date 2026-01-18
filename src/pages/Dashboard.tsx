@@ -145,8 +145,8 @@ export default function Dashboard() {
               description: `${pairSymbol} - ${direction} (${signalData.timeframe}) Grade ${signalData.grade}`,
             });
             
-            // Play sound if enabled
-            const soundEnabled = localStorage.getItem('soundEnabled') === 'true';
+            // Play sound if enabled (defaults to true)
+            const soundEnabled = localStorage.getItem('signal_sound') !== 'false';
             if (soundEnabled) {
               playSignalSound();
             }
