@@ -9,14 +9,14 @@ export function HeroSection() {
   const { t } = useLanguage();
 
   return (
-    <section className="min-h-[calc(100vh-110px)] flex items-start pt-8 md:items-center md:pt-0 justify-center relative overflow-hidden">
+    <section className="pt-10 md:pt-14 pb-16 md:pb-24 flex items-start justify-center relative overflow-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse-glow" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: '1s' }} />
 
       <div className="container mx-auto px-4 relative z-10">
-        <div className="grid md:grid-cols-2 gap-12 items-center">
+        <div className="grid md:grid-cols-2 gap-12 items-start">
           {/* Left Content */}
           <div className="text-center md:text-left">
             <Badge variant="secondary" className="mb-6 py-2 px-4 text-sm">
