@@ -370,6 +370,13 @@ export type Database = {
             foreignKeyName: "user_signals_signal_id_fkey"
             columns: ["signal_id"]
             isOneToOne: false
+            referencedRelation: "latest_signals_by_pair"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_signals_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
             referencedRelation: "signals"
             referencedColumns: ["id"]
           },
@@ -377,7 +384,65 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      latest_signals_by_pair: {
+        Row: {
+          analysis: string | null
+          closed_at: string | null
+          confidence: number | null
+          created_at: string | null
+          direction: string | null
+          entry_price: number | null
+          expires_at: string | null
+          grade: string | null
+          id: string | null
+          outcome_tp: number | null
+          pair_id: string | null
+          pair_name: string | null
+          pair_rank: number | null
+          pnl_percent: number | null
+          setup: string | null
+          status: string | null
+          stop_loss: number | null
+          symbol: string | null
+          take_profit_1: number | null
+          take_profit_2: number | null
+          take_profit_3: number | null
+          timeframe: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signals_pair_id_fkey"
+            columns: ["pair_id"]
+            isOneToOne: false
+            referencedRelation: "allowed_pairs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      performance_stats: {
+        Row: {
+          last_updated: string | null
+          open_24h: number | null
+          open_30d: number | null
+          open_7d: number | null
+          stops_24h: number | null
+          stops_30d: number | null
+          stops_7d: number | null
+          tp1_hits_24h: number | null
+          tp1_hits_30d: number | null
+          tp1_hits_7d: number | null
+          tp2_hits_24h: number | null
+          tp2_hits_30d: number | null
+          tp2_hits_7d: number | null
+          tp3_hits_24h: number | null
+          tp3_hits_30d: number | null
+          tp3_hits_7d: number | null
+          win_rate_24h: number | null
+          win_rate_30d: number | null
+          win_rate_7d: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
