@@ -5,10 +5,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, LogOut, Settings, BarChart3, History, Menu, Lock, Crown, User, Shield } from 'lucide-react';
+import { TrendingUp, LogOut, Settings, BarChart3, History, Menu, Lock, Crown, User, Shield, Zap } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PairSelector } from '@/components/signals/PairSelector';
 import { SignalCard } from '@/components/signals/SignalCard';
+import { PerformanceCard } from '@/components/dashboard/PerformanceCard';
 import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useUserPlan } from '@/hooks/useUserPlan';
@@ -197,6 +198,10 @@ export default function Dashboard() {
           <BarChart3 className="h-5 w-5" />
           {t('nav.dashboard')}
         </Link>
+        <Link to="/active-pairs" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
+          <Zap className="h-5 w-5" />
+          {t('nav.activePairs')}
+        </Link>
         <Link to="/history" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <History className="h-5 w-5" />
           {t('nav.history')}
@@ -288,6 +293,9 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         )}
+
+        {/* Performance Card */}
+        <PerformanceCard />
 
         {/* Configuration Card */}
         <Card className="glass border-border/50 mb-6">
