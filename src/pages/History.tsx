@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrendingUp, TrendingDown, LogOut, Settings, BarChart3, History as HistoryIcon, Menu, Filter, Calendar, Crown, Target, XCircle, AlertCircle, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, LogOut, Settings, BarChart3, History as HistoryIcon, Menu, Filter, Calendar, Crown, Target, XCircle, AlertCircle, Info, Zap, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { SignalCard } from '@/components/signals/SignalCard';
@@ -156,9 +156,17 @@ export default function History() {
           <BarChart3 className="h-5 w-5" />
           {t('nav.dashboard')}
         </Link>
+        <Link to="/active-pairs" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
+          <Zap className="h-5 w-5" />
+          {t('nav.activePairs')}
+        </Link>
         <Link to="/history" className="flex items-center gap-3 px-3 py-2 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground">
           <HistoryIcon className="h-5 w-5" />
           {t('nav.history')}
+        </Link>
+        <Link to="/profile" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
+          <User className="h-5 w-5" />
+          {t('nav.profile')}
         </Link>
         <Link to="/settings" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <Settings className="h-5 w-5" />

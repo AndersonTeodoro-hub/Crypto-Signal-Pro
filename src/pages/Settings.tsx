@@ -292,9 +292,17 @@ export default function Settings() {
           <BarChart3 className="h-5 w-5" />
           {t('nav.dashboard')}
         </Link>
+        <Link to="/active-pairs" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
+          <Zap className="h-5 w-5" />
+          {t('nav.activePairs')}
+        </Link>
         <Link to="/history" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
           <History className="h-5 w-5" />
           {t('nav.history')}
+        </Link>
+        <Link to="/profile" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
+          <User className="h-5 w-5" />
+          {t('nav.profile')}
         </Link>
         <Link to="/settings" className="flex items-center gap-3 px-3 py-2 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground">
           <SettingsIcon className="h-5 w-5" />
