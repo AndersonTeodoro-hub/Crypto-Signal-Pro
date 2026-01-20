@@ -1274,6 +1274,8 @@ Deno.serve(async (req) => {
                 pair_id: pair.id,
                 timeframe,
                 direction: normalized.direction,
+                grade: aiConfirmation.grade,
+                setup: normalized.setup,
                 entry_price: normalized.entry,
                 stop_loss: normalized.stopLoss,
                 take_profit_1: normalized.takeProfit1,
