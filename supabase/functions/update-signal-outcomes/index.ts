@@ -231,11 +231,32 @@ function determineOutcome(
   signal: Signal,
   candles: KlineData[]
 ): { status: 'hit_tp' | 'hit_sl' | 'active'; outcome_tp?: number; closedAt?: number; outcomePrice?: number } {
-  const { direction, entry_price, stop_loss, take_profit_1, take_profit_2, take_profit_3, created_at } = signal
+  const { direction, stop_loss, take_profit_1, take_profit_2, take_profit_3, created_at, timeframe } = signal
   const signalTime = new Date(created_at).getTime()
   
-  // Filter to candles after signal creation
-  const relevantCandles = candles.filter(c => c.time >= signalTime)
+  // Calculate candle duration based on timeframe
+  const timeframeDurationMs = timeframe === '4H' ? 4 * 60 * 60 * 1000 : 60 * 60 * 1000
+  
+  // Normalize candle time to ms (APIs may return seconds or ms)
+  const normalizedCandles = candles
+    .map(c => {
+      const t = typeof c.time === 'string' ? Number(c.time) : c.time
+      // If timestamp is in seconds (< 10 billion), convert to ms
+      const timeMs = t < 10_000_000_000 ? t * 1000 : t
+      return { ...c, time: timeMs }
+    })
+    .sort((a, b) => a.time - b.time)
+  
+  // FIX: Include candles that END after signal creation time
+  // A candle with time=02:00 and 1H duration ends at 03:00
+  // If signal was created at 02:23, we include this candle because it ends AFTER the signal
+  const relevantCandles = normalizedCandles.filter(c => {
+    const candleEndTime = c.time + timeframeDurationMs
+    return candleEndTime > signalTime
+  })
+  
+  // Debug log for auditing
+  console.log(`[Outcome] signal=${signal.id} tf=${timeframe} created=${new Date(signalTime).toISOString()} relevantCandles=${relevantCandles.length}/${candles.length}`)
   
   if (relevantCandles.length === 0) {
     return { status: 'active' }
