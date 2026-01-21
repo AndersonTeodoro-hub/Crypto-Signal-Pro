@@ -411,7 +411,19 @@
     "calculationTitle": "Cálculo do PnL",
     "calculationDescription": "O PnL potencial é calculado com base na distância do preço de entrada até cada nível de take profit.",
     "formula": "Fórmula",
-    "example": "Exemplo"
+    "example": "Exemplo",
+    "entry": "Entrada",
+    "open": "Aberto",
+    "leverageNote": "PnL mostrado sem alavancagem. Ajuste ao seu risco.",
+    "showOnlyOpen": "Mostrar apenas sinais abertos",
+    "noSignal": "Sem sinal ativo",
+    "tp1Hit": "TP1 Atingido",
+    "tp2Hit": "TP2 Atingido",
+    "tp3Hit": "TP3 Atingido",
+    "stopHit": "Stop Atingido",
+    "lastSignals": "Sinais Recentes",
+    "viewHistory": "Ver Histórico",
+    "stopLoss": "Stop Loss"
   },
   "performance": {
     "title": "Desempenho dos Sinais",
@@ -427,7 +439,9 @@
     "tp2": "TP2",
     "tp3": "TP3",
     "stops": "Stops",
-    "open": "Abertos"
+    "open": "Abertos",
+    "verifiedHistory": "Histórico Verificado",
+    "howWeCalculate": "Como calculamos"
   },
   "alerts": {
     "enable": "Ativar Alertas",
