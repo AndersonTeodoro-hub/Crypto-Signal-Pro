@@ -2,8 +2,8 @@ name: Update Signal Outcomes
 
 on:
   schedule:
-    # Every hour at minute 9
-    - cron: '9 * * * *'
+    # Every 5 minutes for near real-time outcome updates
+    - cron: '*/5 * * * *'
   workflow_dispatch: {}
 
 jobs:
@@ -15,23 +15,50 @@ jobs:
         run: |
           echo "Updating signal outcomes..."
           
-          response=$(curl -s -w "\n%{http_code}" -X POST \
-            "${{ secrets.SUPABASE_URL }}/functions/v1/update-signal-outcomes" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            -d '{"limit":200}')
+          MAX_ATTEMPTS=5
+          ATTEMPT=1
+          BACKOFF=10
           
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-          
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
-          
-          if [ "$http_code" -ne 200 ]; then
-            echo "Error: Request failed with status $http_code"
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo "Attempt $ATTEMPT of $MAX_ATTEMPTS..."
+            
+            response=$(curl -s -w "\n%{http_code}" -X POST \
+              --connect-timeout 20 \
+              --max-time 180 \
+              "${{ secrets.SUPABASE_URL }}/functions/v1/update-signal-outcomes" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+              -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+              -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+              -d '{"limit":200}')
+            
+            http_code=$(echo "$response" | tail -n1)
+            body=$(echo "$response" | sed '$d')
+            
+            echo "HTTP Status: $http_code"
+            echo "Response: $body"
+            
+            # Success
+            if [ "$http_code" -eq 200 ]; then
+              echo "Outcome update completed successfully!"
+              exit 0
+            fi
+            
+            # Retry on transient errors (429, 502, 503, 504)
+            if [ "$http_code" -eq 429 ] || [ "$http_code" -eq 502 ] || [ "$http_code" -eq 503 ] || [ "$http_code" -eq 504 ]; then
+              if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+                echo "Transient error $http_code, retrying in ${BACKOFF}s..."
+                sleep $BACKOFF
+                ATTEMPT=$((ATTEMPT + 1))
+                BACKOFF=$((BACKOFF + 10))
+                continue
+              fi
+            fi
+            
+            # Non-retryable error or max attempts reached
+            echo "Error: Request failed with status $http_code after $ATTEMPT attempt(s)"
             exit 1
-          fi
+          done
           
-          echo "Outcome update completed successfully!"
+          echo "Error: Max attempts ($MAX_ATTEMPTS) reached"
+          exit 1
