@@ -405,7 +405,19 @@
     "calculationTitle": "PnL Calculation",
     "calculationDescription": "The potential PnL is calculated based on the distance from entry price to each take profit level.",
     "formula": "Formula",
-    "example": "Example"
+    "example": "Example",
+    "entry": "Entry",
+    "open": "Open",
+    "leverageNote": "PnL shown is without leverage. Adjust for your risk.",
+    "showOnlyOpen": "Show only open signals",
+    "noSignal": "No active signal",
+    "tp1Hit": "TP1 Hit",
+    "tp2Hit": "TP2 Hit",
+    "tp3Hit": "TP3 Hit",
+    "stopHit": "Stop Hit",
+    "lastSignals": "Recent Signals",
+    "viewHistory": "View History",
+    "stopLoss": "Stop Loss"
   },
   "performance": {
     "title": "Signal Performance",
@@ -421,7 +433,9 @@
     "tp2": "TP2",
     "tp3": "TP3",
     "stops": "Stops",
-    "open": "Open"
+    "open": "Open",
+    "verifiedHistory": "Verified History",
+    "howWeCalculate": "How we calculate"
   },
   "alerts": {
     "enable": "Enable Alerts",
