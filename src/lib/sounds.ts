@@ -1,6 +1,7 @@
-// Signal notification sound utility
+// Signal notification sound utility with volume control and distinct sounds
 
 let audioContext: AudioContext | null = null;
+let audioEnabled = false;
 
 function getAudioContext(): AudioContext {
   if (!audioContext) {
@@ -9,11 +10,93 @@ function getAudioContext(): AudioContext {
   return audioContext;
 }
 
-export function playSignalSound() {
+/**
+ * Enable audio playback - must be called from a user gesture (click/tap)
+ * Returns true if audio was successfully enabled
+ */
+export async function enableAudio(): Promise<boolean> {
   try {
     const ctx = getAudioContext();
     
-    // Resume context if suspended (browser autoplay policy)
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+    
+    audioEnabled = true;
+    console.log('Audio context enabled');
+    return true;
+  } catch (err) {
+    console.error('Failed to enable audio:', err);
+    return false;
+  }
+}
+
+/**
+ * Check if audio has been enabled via user gesture
+ */
+export function isAudioEnabled(): boolean {
+  return audioEnabled;
+}
+
+/**
+ * Play alert beep with configurable volume and type
+ * @param volume - Volume level from 0.0 to 1.0 (default 0.7)
+ * @param type - 'signal' for new signals (ascending), 'outcome' for outcomes (descending)
+ */
+export function playAlertBeep(volume: number = 0.7, type: 'signal' | 'outcome' = 'signal') {
+  try {
+    const ctx = getAudioContext();
+    
+    // Resume context if suspended
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+
+    const clampedVolume = Math.max(0, Math.min(1, volume));
+    
+    if (type === 'signal') {
+      // New signal: ascending pleasant chime (880Hz -> 1108Hz -> 1318Hz)
+      playChime(ctx, [880, 1108.73, 1318.51], clampedVolume);
+    } else {
+      // Outcome: descending completion tone (660Hz -> 523Hz -> 440Hz)
+      playChime(ctx, [660, 523.25, 440], clampedVolume);
+    }
+
+    console.log(`Alert beep played: ${type}, volume: ${clampedVolume}`);
+  } catch (err) {
+    console.error('Error playing alert beep:', err);
+  }
+}
+
+function playChime(ctx: AudioContext, frequencies: number[], volume: number) {
+  const oscillator = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(ctx.destination);
+
+  oscillator.type = 'sine';
+  
+  // Set frequencies at intervals
+  oscillator.frequency.setValueAtTime(frequencies[0], ctx.currentTime);
+  oscillator.frequency.setValueAtTime(frequencies[1], ctx.currentTime + 0.1);
+  oscillator.frequency.setValueAtTime(frequencies[2], ctx.currentTime + 0.2);
+
+  // Volume envelope with configurable peak
+  gainNode.gain.setValueAtTime(volume * 0.4, ctx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+
+  oscillator.start(ctx.currentTime);
+  oscillator.stop(ctx.currentTime + 0.4);
+}
+
+/**
+ * Play a short test beep to confirm audio is working
+ */
+export function playTestBeep(volume: number = 0.7) {
+  try {
+    const ctx = getAudioContext();
+    
     if (ctx.state === 'suspended') {
       ctx.resume();
     }
@@ -24,22 +107,31 @@ export function playSignalSound() {
     oscillator.connect(gainNode);
     gainNode.connect(ctx.destination);
 
-    // Create a pleasant notification sound
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, ctx.currentTime); // A5
-    oscillator.frequency.setValueAtTime(1108.73, ctx.currentTime + 0.1); // C#6
-    oscillator.frequency.setValueAtTime(1318.51, ctx.currentTime + 0.2); // E6
+    const clampedVolume = Math.max(0, Math.min(1, volume));
 
-    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+    oscillator.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+
+    gainNode.gain.setValueAtTime(clampedVolume * 0.3, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
 
     oscillator.start(ctx.currentTime);
-    oscillator.stop(ctx.currentTime + 0.4);
+    oscillator.stop(ctx.currentTime + 0.2);
 
-    console.log('Signal sound played');
+    console.log('Test beep played');
+    return true;
   } catch (err) {
-    console.error('Error playing signal sound:', err);
+    console.error('Error playing test beep:', err);
+    return false;
   }
+}
+
+/**
+ * Legacy function for backward compatibility
+ */
+export function playSignalSound() {
+  playAlertBeep(0.7, 'signal');
 }
 
 export function requestNotificationPermission(): Promise<NotificationPermission> {

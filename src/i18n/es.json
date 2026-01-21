@@ -428,5 +428,30 @@
     "tp3": "TP3",
     "stops": "Stops",
     "open": "Abiertos"
+  },
+  "alerts": {
+    "enable": "Activar Alertas",
+    "enabled": "Alertas Activos",
+    "disabled": "Alertas Desactivados",
+    "disable": "Desactivar",
+    "settings": "Configuración de Alertas",
+    "sound": "Sonido",
+    "desktop": "Notificaciones de Escritorio",
+    "volume": "Volumen",
+    "test": "Probar Sonido",
+    "outcomes": "Alertas de Resultado (TP/SL)",
+    "gradeFilter": "Calificación de Señal",
+    "gradeAll": "Todas las Calificaciones",
+    "gradeAOnly": "Solo A y A+",
+    "gradeAPlusOnly": "Solo A+",
+    "newSignal": "Nueva Señal",
+    "outcomeTP": "Objetivo Alcanzado",
+    "outcomeSL": "Stop Loss Alcanzado",
+    "outcomeExpired": "Señal Expirada",
+    "audioUnlocked": "¡Audio activado! Escucharás alertas para nuevas señales.",
+    "audioError": "No se pudo activar el audio. Intenta hacer clic en el botón de nuevo.",
+    "notificationsEnabled": "¡Notificaciones de escritorio activadas!",
+    "notificationsNotSupported": "Tu navegador no soporta notificaciones de escritorio.",
+    "permissionDenied": "Permiso de notificación denegado. Actívalo en la configuración del navegador."
   }
 }

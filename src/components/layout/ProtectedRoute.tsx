@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
+import { AlertsProvider } from './AlertsProvider';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -25,5 +26,9 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
 
-  return <>{children}</>;
+  return (
+    <AlertsProvider>
+      {children}
+    </AlertsProvider>
+  );
 }

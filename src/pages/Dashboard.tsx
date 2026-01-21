@@ -15,6 +15,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useUserPlan } from '@/hooks/useUserPlan';
 import { Badge } from '@/components/ui/badge';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { AlertsDropdown } from '@/components/alerts/AlertsDropdown';
 import { playSignalSound, showBrowserNotification } from '@/lib/sounds';
 import type { SignalWithPair } from '@/types/database';
 
@@ -267,9 +268,12 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold">{t('dashboard.welcome')}</h1>
             <p className="text-muted-foreground">{user?.email}</p>
           </div>
-          <Badge variant="outline" className="capitalize">
-            {effectivePlan} {t('dashboard.plan')}
-          </Badge>
+          <div className="flex items-center gap-3">
+            <AlertsDropdown />
+            <Badge variant="outline" className="capitalize">
+              {effectivePlan} {t('dashboard.plan')}
+            </Badge>
+          </div>
         </div>
 
         {/* Plan Limit Notice for Free Users */}
