@@ -8,6 +8,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useUserPlan } from '@/hooks/useUserPlan';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { AlertsDropdown } from '@/components/alerts/AlertsDropdown';
 import { ActivePairCard, ActivePairCardSkeleton } from '@/components/signals/ActivePairCard';
 import { ActivePairsFilters } from '@/components/signals/ActivePairsFilters';
 import { PairDetailModal } from '@/components/signals/PairDetailModal';
@@ -321,6 +322,15 @@ export default function ActivePairs() {
 
       {/* Main Content */}
       <main className="md:ml-64 p-6 pt-20 md:pt-6">
+        {/* Header with Alerts */}
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-2xl font-bold">{t('activePairs.title')}</h1>
+            <p className="text-sm text-muted-foreground">{t('activePairs.subtitle')}</p>
+          </div>
+          <AlertsDropdown />
+        </div>
+
         {/* Filters Header */}
         <ActivePairsFilters
           showOnlyOpen={showOnlyOpen}

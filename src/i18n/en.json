@@ -422,5 +422,30 @@
     "tp3": "TP3",
     "stops": "Stops",
     "open": "Open"
+  },
+  "alerts": {
+    "enable": "Enable Alerts",
+    "enabled": "Alerts Active",
+    "disabled": "Alerts Disabled",
+    "disable": "Disable",
+    "settings": "Alert Settings",
+    "sound": "Sound",
+    "desktop": "Desktop Notifications",
+    "volume": "Volume",
+    "test": "Test Sound",
+    "outcomes": "Outcome Alerts (TP/SL)",
+    "gradeFilter": "Signal Grade",
+    "gradeAll": "All Grades",
+    "gradeAOnly": "A & A+ Only",
+    "gradeAPlusOnly": "A+ Only",
+    "newSignal": "New Signal",
+    "outcomeTP": "Target Hit",
+    "outcomeSL": "Stop Loss Hit",
+    "outcomeExpired": "Signal Expired",
+    "audioUnlocked": "Audio enabled! You'll hear alerts for new signals.",
+    "audioError": "Could not enable audio. Try clicking the button again.",
+    "notificationsEnabled": "Desktop notifications enabled!",
+    "notificationsNotSupported": "Your browser does not support desktop notifications.",
+    "permissionDenied": "Notification permission denied. Enable it in browser settings."
   }
 }

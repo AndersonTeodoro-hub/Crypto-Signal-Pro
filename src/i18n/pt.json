@@ -428,5 +428,30 @@
     "tp3": "TP3",
     "stops": "Stops",
     "open": "Abertos"
+  },
+  "alerts": {
+    "enable": "Ativar Alertas",
+    "enabled": "Alertas Ativos",
+    "disabled": "Alertas Desativados",
+    "disable": "Desativar",
+    "settings": "Configurações de Alertas",
+    "sound": "Som",
+    "desktop": "Notificações Desktop",
+    "volume": "Volume",
+    "test": "Testar Som",
+    "outcomes": "Alertas de Resultado (TP/SL)",
+    "gradeFilter": "Nota do Sinal",
+    "gradeAll": "Todas as Notas",
+    "gradeAOnly": "Apenas A e A+",
+    "gradeAPlusOnly": "Apenas A+",
+    "newSignal": "Novo Sinal",
+    "outcomeTP": "Alvo Atingido",
+    "outcomeSL": "Stop Loss Atingido",
+    "outcomeExpired": "Sinal Expirado",
+    "audioUnlocked": "Áudio ativado! Você ouvirá alertas para novos sinais.",
+    "audioError": "Não foi possível ativar o áudio. Tente clicar no botão novamente.",
+    "notificationsEnabled": "Notificações desktop ativadas!",
+    "notificationsNotSupported": "Seu navegador não suporta notificações desktop.",
+    "permissionDenied": "Permissão de notificação negada. Ative nas configurações do navegador."
   }
 }
