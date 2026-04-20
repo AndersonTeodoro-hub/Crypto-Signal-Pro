@@ -59,11 +59,11 @@ Motor SMC com 3 setups. Máximo cuidado:
 
 ---
 
-## IA — migração em andamento
+## IA — migração CONCLUÍDA
 
-Projeto migrando do Lovable AI Gateway → Anthropic Claude direto.
+Motor de sinais usa Anthropic Claude direto (Lovable AI Gateway removido).
 
-- Novas integrações com IA devem usar `https://api.anthropic.com/v1/messages`.
+- Integrações com IA usam `https://api.anthropic.com/v1/messages`.
 - Em edge functions, a chave é lida via `Deno.env.get('ANTHROPIC_API_KEY')`.
 - **Nunca** hardcode a chave (ver Regra Absoluta).
 

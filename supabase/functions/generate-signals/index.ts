@@ -841,10 +841,10 @@ async function confirmWithAI(
   rsiValue: number,
   trend: string
 ): Promise<AIConfirmation | null> {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
-  
-  if (!LOVABLE_API_KEY) {
-    console.log('LOVABLE_API_KEY not configured, skipping AI confirmation')
+  const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
+
+  if (!ANTHROPIC_API_KEY) {
+    console.log('ANTHROPIC_API_KEY not configured, skipping AI confirmation')
     return null
   }
   
@@ -891,100 +891,99 @@ ${candlesSummary}
 
 Analyze critically and use the analyze_signal function to respond.`
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json'
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model: 'claude-sonnet-4-5',
+        max_tokens: 1024,
+        system: AI_SYSTEM_PROMPT,
         messages: [
-          { role: 'system', content: AI_SYSTEM_PROMPT },
           { role: 'user', content: userPrompt }
         ],
         tools: [
           {
-            type: 'function',
-            function: {
-              name: 'analyze_signal',
-              description: 'Provides structured analysis of the trading setup',
-              parameters: {
-                type: 'object',
-                properties: {
-                  approve: {
-                    type: 'boolean',
-                    description: 'true if setup is valid and should be executed, false if rejected'
-                  },
-                  confidence: {
-                    type: 'integer',
-                    minimum: 0,
-                    maximum: 100,
-                    description: 'Final confidence score (0-100)'
-                  },
-                  grade: {
-                    type: 'string',
-                    enum: ['A+', 'A', 'B+', 'B', 'REJECT'],
-                    description: 'Grade for the setup quality'
-                  },
-                  reason: {
-                    type: 'string',
-                    description: 'Short reason for approval/rejection (max 2 sentences, in English)'
-                  },
-                  riskNotes: {
-                    type: 'array',
-                    items: { type: 'string' },
-                    description: 'List of specific risk factors (bullet points, in English)'
-                  },
-                  improvements: {
-                    type: 'array',
-                    items: { type: 'string' },
-                    description: 'List of improvements that would make this trade valid (in English)'
-                  },
-                  suggestedAdjustments: {
-                    type: 'object',
-                    properties: {
-                      entry: { type: 'number' },
-                      stopLoss: { type: 'number' },
-                      takeProfit1: { type: 'number' },
-                      takeProfit2: { type: 'number' },
-                      takeProfit3: { type: 'number' }
-                    },
-                    description: 'Optional: adjusted levels that would make the trade valid'
-                  }
+            name: 'analyze_signal',
+            description: 'Provides structured analysis of the trading setup',
+            input_schema: {
+              type: 'object',
+              properties: {
+                approve: {
+                  type: 'boolean',
+                  description: 'true if setup is valid and should be executed, false if rejected'
                 },
-                required: ['approve', 'confidence', 'grade', 'reason', 'riskNotes', 'improvements'],
-                additionalProperties: false
-              }
+                confidence: {
+                  type: 'integer',
+                  minimum: 0,
+                  maximum: 100,
+                  description: 'Final confidence score (0-100)'
+                },
+                grade: {
+                  type: 'string',
+                  enum: ['A+', 'A', 'B+', 'B', 'REJECT'],
+                  description: 'Grade for the setup quality'
+                },
+                reason: {
+                  type: 'string',
+                  description: 'Short reason for approval/rejection (max 2 sentences, in English)'
+                },
+                riskNotes: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'List of specific risk factors (bullet points, in English)'
+                },
+                improvements: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'List of improvements that would make this trade valid (in English)'
+                },
+                suggestedAdjustments: {
+                  type: 'object',
+                  properties: {
+                    entry: { type: 'number' },
+                    stopLoss: { type: 'number' },
+                    takeProfit1: { type: 'number' },
+                    takeProfit2: { type: 'number' },
+                    takeProfit3: { type: 'number' }
+                  },
+                  description: 'Optional: adjusted levels that would make the trade valid'
+                }
+              },
+              required: ['approve', 'confidence', 'grade', 'reason', 'riskNotes', 'improvements'],
+              additionalProperties: false
             }
           }
         ],
-        tool_choice: { type: 'function', function: { name: 'analyze_signal' } }
+        tool_choice: { type: 'tool', name: 'analyze_signal' }
       })
     })
     
     if (!response.ok) {
       const errorText = await response.text()
-      console.error(`AI Gateway error: ${response.status} - ${errorText}`)
+      console.error(`Anthropic API error: ${response.status} - ${errorText}`)
       return null
     }
-    
+
     const data = await response.json()
-    
-    // Extract tool call response
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0]
-    if (!toolCall || toolCall.function.name !== 'analyze_signal') {
+
+    // Extract tool_use block (Anthropic forces it via tool_choice)
+    const toolUse = data.content?.[0]
+    if (!toolUse || toolUse.type !== 'tool_use' || toolUse.name !== 'analyze_signal') {
       console.error('Unexpected AI response format:', JSON.stringify(data))
       return null
     }
-    
-    const args = JSON.parse(toolCall.function.arguments) as AIConfirmation
+
+    const args = toolUse.input as AIConfirmation
     console.log(`[AI] ${pair}: approve=${args.approve}, grade=${args.grade}, confidence=${args.confidence}`)
-    
+
     return args
-    
+
   } catch (error) {
-    console.error('Error calling AI Gateway:', error)
+    console.error('Error calling Anthropic API:', error)
     return null
   }
 }
