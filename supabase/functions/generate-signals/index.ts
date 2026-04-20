@@ -1239,7 +1239,10 @@ Deno.serve(async (req) => {
               // AI REJECTED - Log structured feedback, don't insert signal
               console.log(`[AI REJECT] ${pair.symbol}: ${aiConfirmation.reason}`)
               console.log(`[AI REJECT] Grade: ${aiConfirmation.grade}, Confidence: ${aiConfirmation.confidence}`)
-              console.log(`[AI REJECT] Improvements: ${aiConfirmation.improvements.join(', ')}`)
+              const rejectImprovementsText = Array.isArray(aiConfirmation.improvements)
+                ? aiConfirmation.improvements.join(', ')
+                : (aiConfirmation.improvements || '')
+              console.log(`[AI REJECT] Improvements: ${rejectImprovementsText}`)
               
               results.push({ 
                 pair: pair.symbol, 
@@ -1259,12 +1262,15 @@ Deno.serve(async (req) => {
             console.log(`[AI APPROVE] ${pair.symbol}: grade=${aiConfirmation.grade}, confidence=${aiConfirmation.confidence}`)
 
             // Build premium English analysis block
-            const riskNotesBlock = aiConfirmation.riskNotes.length > 0 
-              ? `\nRisks:\n${aiConfirmation.riskNotes.map(r => `- ${r}`).join('\n')}` 
-              : ''
-            const improvementsBlock = aiConfirmation.improvements.length > 0 
-              ? `\nImprovements:\n${aiConfirmation.improvements.map(i => `- ${i}`).join('\n')}` 
-              : ''
+            // Anthropic sometimes returns riskNotes/improvements as string instead of array
+            const riskNotesText = Array.isArray(aiConfirmation.riskNotes)
+              ? aiConfirmation.riskNotes.map(r => `- ${r}`).join('\n')
+              : (aiConfirmation.riskNotes || '')
+            const improvementsText = Array.isArray(aiConfirmation.improvements)
+              ? aiConfirmation.improvements.map(i => `- ${i}`).join('\n')
+              : (aiConfirmation.improvements || '')
+            const riskNotesBlock = riskNotesText ? `\nRisks:\n${riskNotesText}` : ''
+            const improvementsBlock = improvementsText ? `\nImprovements:\n${improvementsText}` : ''
             const premiumAnalysis = `Reason: ${aiConfirmation.reason}${riskNotesBlock}${improvementsBlock}`
 
             const { error: insertError } = await supabase
