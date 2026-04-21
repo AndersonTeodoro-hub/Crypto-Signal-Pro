@@ -15,6 +15,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   if (authLoading) {
     return (
@@ -30,9 +31,14 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-    await signIn(email, password);
+    const result = await signIn(email, password);
     setLoading(false);
+
+    if (result.error) {
+      setError(result.error.message);
+    }
   };
 
   return (
@@ -64,6 +70,7 @@ export default function Login() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
               </div>
               <Button type="submit" className="w-full gradient-primary text-white" disabled={loading}>
                 {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t('common.loading')}</> : t('auth.signIn')}

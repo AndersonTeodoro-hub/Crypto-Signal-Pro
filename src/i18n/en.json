@@ -149,7 +149,9 @@
     "checkInbox": "Check your inbox for the password reset link.",
     "passwordsNoMatch": "Passwords do not match",
     "sending": "Sending...",
-    "invalidEmail": "Invalid email"
+    "invalidEmail": "Invalid email",
+    "confirmEmailTitle": "Confirmation email sent",
+    "confirmEmailDescription": "Check your inbox and click the link to confirm your account."
   },
   "dashboard": {
     "welcome": "Welcome back!",

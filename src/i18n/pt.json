@@ -149,7 +149,9 @@
     "checkInbox": "Verifique sua caixa de entrada para o link de redefinição de senha.",
     "passwordsNoMatch": "As senhas não coincidem",
     "sending": "Enviando...",
-    "invalidEmail": "Email inválido"
+    "invalidEmail": "Email inválido",
+    "confirmEmailTitle": "Email de confirmação enviado",
+    "confirmEmailDescription": "Verifique a sua caixa de entrada e clique no link para confirmar a conta."
   },
   "dashboard": {
     "welcome": "Bem-vindo de volta!",

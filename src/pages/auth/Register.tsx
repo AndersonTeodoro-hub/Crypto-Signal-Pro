@@ -71,8 +71,20 @@ export default function Register() {
       return;
     }
     setLoading(true);
-    await signUp(email, password);
+    const result = await signUp(email, password);
     setLoading(false);
+
+    if (result.error) {
+      setError(result.error.message);
+      return;
+    }
+
+    if (result.needsEmailConfirmation) {
+      toast({
+        title: t('auth.confirmEmailTitle'),
+        description: t('auth.confirmEmailDescription'),
+      });
+    }
   };
 
   return (

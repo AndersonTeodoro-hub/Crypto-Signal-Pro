@@ -149,7 +149,9 @@
     "checkInbox": "Revisa tu bandeja de entrada para el enlace de restablecimiento de contraseña.",
     "passwordsNoMatch": "Las contraseñas no coinciden",
     "sending": "Enviando...",
-    "invalidEmail": "Email inválido"
+    "invalidEmail": "Email inválido",
+    "confirmEmailTitle": "Email de confirmación enviado",
+    "confirmEmailDescription": "Revisa tu bandeja de entrada y haz clic en el enlace para confirmar tu cuenta."
   },
   "dashboard": {
     "welcome": "¡Bienvenido de nuevo!",
