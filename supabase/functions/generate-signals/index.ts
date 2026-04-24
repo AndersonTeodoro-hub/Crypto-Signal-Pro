@@ -36,7 +36,7 @@ interface FVG {
 }
 
 interface SignalSetup {
-  setup: 'SWEEP_OB' | 'FVG_TREND' | 'BOS_RETEST'
+  setup: 'SWEEP_OB' | 'FVG_TREND' | 'BOS_RETEST' | 'EMA_BOUNCE' | 'VOLUME_DIVERGENCE'
   direction: 'LONG' | 'SHORT'
   entry: number
   stopLoss: number
@@ -431,6 +431,35 @@ function calculateRSI(prices: number[], period: number = 14): number[] {
   return rsi
 }
 
+function calculateATR(candles: Candle[], period: number = 14): number[] {
+  const atr: number[] = []
+  if (candles.length < 2) return atr
+
+  const tr: number[] = [candles[0].high - candles[0].low]
+  for (let i = 1; i < candles.length; i++) {
+    const c = candles[i]
+    const prevClose = candles[i - 1].close
+    tr.push(Math.max(
+      c.high - c.low,
+      Math.abs(c.high - prevClose),
+      Math.abs(c.low - prevClose)
+    ))
+  }
+
+  // Wilder's smoothing
+  let sum = 0
+  for (let i = 0; i < tr.length; i++) {
+    if (i < period) {
+      sum += tr[i]
+      atr.push(i === period - 1 ? sum / period : NaN)
+    } else {
+      const prev = atr[i - 1]
+      atr.push((prev * (period - 1) + tr[i]) / period)
+    }
+  }
+  return atr
+}
+
 // ============= STRUCTURE =============
 
 function findSwingPoints(candles: Candle[], lookback: number = 5): SwingPoint[] {
@@ -773,6 +802,191 @@ function analyzeSetup3_BOSRetest(candles: Candle[], swings: SwingPoint[], bos: {
   return null
 }
 
+function analyzeSetup4_EMABounce(
+  candles: Candle[],
+  ema50: number[],
+  ema200: number[],
+  trend: string,
+  rsi: number[]
+): SignalSetup | null {
+  if (trend === 'ranging') return null
+  if (candles.length < 11) return null
+
+  const lastIdx = candles.length - 1
+  const last = candles[lastIdx]
+  const prev = candles[lastIdx - 1]
+  const currentRSI = rsi[rsi.length - 1] || 50
+
+  // RSI pullback zone
+  if (currentRSI < 40 || currentRSI > 60) return null
+
+  // Check touch of EMA50 or EMA200 in last 3 candles
+  const BAND = 0.003 // 0.3%
+  let touched: { ema: 'EMA50' | 'EMA200'; value: number } | null = null
+  for (let i = lastIdx - 2; i <= lastIdx; i++) {
+    const c = candles[i]
+    const e50 = ema50[i]
+    const e200 = ema200[i]
+    if (trend === 'bullish') {
+      if (e50 && Math.abs(c.low - e50) / e50 <= BAND) { touched = { ema: 'EMA50', value: e50 }; break }
+      if (e200 && Math.abs(c.low - e200) / e200 <= BAND) { touched = { ema: 'EMA200', value: e200 }; break }
+    } else {
+      if (e50 && Math.abs(c.high - e50) / e50 <= BAND) { touched = { ema: 'EMA50', value: e50 }; break }
+      if (e200 && Math.abs(c.high - e200) / e200 <= BAND) { touched = { ema: 'EMA200', value: e200 }; break }
+    }
+  }
+  if (!touched) return null
+
+  // Reversal engulfing: opposite direction + larger body than previous
+  const currBody = Math.abs(last.close - last.open)
+  const prevBody = Math.abs(prev.close - prev.open)
+  const currIsBull = last.close > last.open
+  const prevIsBull = prev.close > prev.open
+  if (currBody <= prevBody) return null
+  if (currIsBull === prevIsBull) return null
+  if (trend === 'bullish' && !currIsBull) return null
+  if (trend === 'bearish' && currIsBull) return null
+
+  // Volume > average of last 10 candles (excluding current)
+  const vols = candles.slice(lastIdx - 10, lastIdx).map(c => c.volume)
+  const avgVol = vols.reduce((a, b) => a + b, 0) / vols.length
+  if (last.volume <= avgVol) return null
+
+  if (trend === 'bullish') {
+    const entry = last.close
+    const sl = touched.value * 0.995
+    const risk = entry - sl
+    if (risk <= 0) return null
+    return {
+      setup: 'EMA_BOUNCE',
+      direction: 'LONG',
+      entry,
+      stopLoss: sl,
+      takeProfit1: entry + risk,
+      takeProfit2: entry + risk * 2,
+      takeProfit3: entry + risk * 3,
+      confidence: 70,
+      analysis: `Bounce confirmado na ${touched.ema} (${touched.value.toFixed(4)}) em tendência de alta. Engulfing bullish com volume > média(10). RSI ${currentRSI.toFixed(0)} em zona de pullback.`,
+      meta: { touched, currentRSI, avgVol, candleVol: last.volume }
+    }
+  } else {
+    const entry = last.close
+    const sl = touched.value * 1.005
+    const risk = sl - entry
+    if (risk <= 0) return null
+    return {
+      setup: 'EMA_BOUNCE',
+      direction: 'SHORT',
+      entry,
+      stopLoss: sl,
+      takeProfit1: entry - risk,
+      takeProfit2: entry - risk * 2,
+      takeProfit3: entry - risk * 3,
+      confidence: 70,
+      analysis: `Rejeição confirmada na ${touched.ema} (${touched.value.toFixed(4)}) em tendência de baixa. Engulfing bearish com volume > média(10). RSI ${currentRSI.toFixed(0)} em zona de pullback.`,
+      meta: { touched, currentRSI, avgVol, candleVol: last.volume }
+    }
+  }
+}
+
+function analyzeSetup5_VolumeDivergence(
+  candles: Candle[],
+  swings: SwingPoint[],
+  orderBlocks: OrderBlock[],
+  fvgs: FVG[],
+  rsi: number[]
+): SignalSetup | null {
+  if (candles.length < 6 || rsi.length < 6) return null
+
+  const last5 = candles.slice(-5)
+  const lastRsi = rsi[rsi.length - 1]
+  const prevRsi = rsi[rsi.length - 2]
+  if (!Number.isFinite(lastRsi) || !Number.isFinite(prevRsi)) return null
+
+  const highs = last5.map(c => c.high)
+  const lows = last5.map(c => c.low)
+  const maxHighIdx = highs.indexOf(Math.max(...highs))
+  const minLowIdx = lows.indexOf(Math.min(...lows))
+
+  // Bearish divergence → SHORT
+  if (maxHighIdx === 4) {
+    const prevHighCandle = last5.slice(0, 4).reduce((a, b) => (a.high > b.high ? a : b))
+    const volumeDown = last5[4].volume < prevHighCandle.volume
+    const rsiDivergence = lastRsi < prevRsi
+    if (volumeDown && rsiDivergence) {
+      const recent = candles.slice(-10)
+      const recentHigh = Math.max(...recent.map(c => c.high))
+      const bearishOB = orderBlocks.filter(ob =>
+        ob.type === 'bearish' && ob.low >= last5[4].close && ob.low <= recentHigh
+      ).slice(-1)[0]
+      const bearishFVG = fvgs.filter(f =>
+        f.type === 'bearish' && f.low >= last5[4].close && f.low <= recentHigh
+      ).slice(-1)[0]
+      if (!bearishOB && !bearishFVG) return null
+
+      const lastSwingHigh = swings.filter(s => s.type === 'high').slice(-1)[0]
+      if (!lastSwingHigh) return null
+
+      const entry = last5[4].close
+      const sl = lastSwingHigh.price * 1.005
+      const risk = sl - entry
+      if (risk <= 0) return null
+      return {
+        setup: 'VOLUME_DIVERGENCE',
+        direction: 'SHORT',
+        entry,
+        stopLoss: sl,
+        takeProfit1: entry - risk,
+        takeProfit2: entry - risk * 2,
+        takeProfit3: entry - risk * 3,
+        confidence: 65,
+        analysis: `Divergência de exaustão: novo high com volume menor (${last5[4].volume.toFixed(2)} < ${prevHighCandle.volume.toFixed(2)}) e RSI caindo (${prevRsi.toFixed(0)} → ${lastRsi.toFixed(0)}). Zona SMC bearish ${bearishOB ? 'OB' : 'FVG'} acima para alvo.`,
+        meta: { prevHighVol: prevHighCandle.volume, lastVol: last5[4].volume, rsiPrev: prevRsi, rsiNow: lastRsi }
+      }
+    }
+  }
+
+  // Bullish divergence → LONG
+  if (minLowIdx === 4) {
+    const prevLowCandle = last5.slice(0, 4).reduce((a, b) => (a.low < b.low ? a : b))
+    const volumeDown = last5[4].volume < prevLowCandle.volume
+    const rsiDivergence = lastRsi > prevRsi
+    if (volumeDown && rsiDivergence) {
+      const recent = candles.slice(-10)
+      const recentLow = Math.min(...recent.map(c => c.low))
+      const bullishOB = orderBlocks.filter(ob =>
+        ob.type === 'bullish' && ob.high <= last5[4].close && ob.high >= recentLow
+      ).slice(-1)[0]
+      const bullishFVG = fvgs.filter(f =>
+        f.type === 'bullish' && f.high <= last5[4].close && f.high >= recentLow
+      ).slice(-1)[0]
+      if (!bullishOB && !bullishFVG) return null
+
+      const lastSwingLow = swings.filter(s => s.type === 'low').slice(-1)[0]
+      if (!lastSwingLow) return null
+
+      const entry = last5[4].close
+      const sl = lastSwingLow.price * 0.995
+      const risk = entry - sl
+      if (risk <= 0) return null
+      return {
+        setup: 'VOLUME_DIVERGENCE',
+        direction: 'LONG',
+        entry,
+        stopLoss: sl,
+        takeProfit1: entry + risk,
+        takeProfit2: entry + risk * 2,
+        takeProfit3: entry + risk * 3,
+        confidence: 65,
+        analysis: `Divergência de capitulação: novo low com volume menor (${last5[4].volume.toFixed(2)} < ${prevLowCandle.volume.toFixed(2)}) e RSI subindo (${prevRsi.toFixed(0)} → ${lastRsi.toFixed(0)}). Zona SMC bullish ${bullishOB ? 'OB' : 'FVG'} abaixo para alvo.`,
+        meta: { prevLowVol: prevLowCandle.volume, lastVol: last5[4].volume, rsiPrev: prevRsi, rsiNow: lastRsi }
+      }
+    }
+  }
+
+  return null
+}
+
 // Grade is now determined by AI, not this function
 // Kept for backwards compatibility if needed
 function getGrade(confidence: number): 'A+' | 'A' | 'B+' | 'B' {
@@ -800,41 +1014,58 @@ interface AIConfirmation {
   }
 }
 
-const AI_SYSTEM_PROMPT = `You are a senior institutional trading analyst specialized in Smart Money Concepts (SMC) and risk management.
+const AI_SYSTEM_PROMPT = `You are an elite institutional trading analyst combining Smart Money Concepts (SMC) with classical Price Action for maximum confluence.
 
-You act as a STRICT GATEKEEPER for trading signals. You must:
-1. APPROVE only high-probability setups (confidence ≥60%)
-2. REJECT setups with clear reasoning and actionable improvements
-3. ALWAYS respond via the analyze_signal function in English
+YOUR ROLE: Final quality gate before signals reach retail traders. You validate algorithmic SMC detections and score confluence across multiple factors.
 
-HARD REJECTION CRITERIA (automatic REJECT):
-- Risk/Reward < 1.5 at TP1
-- Stop Loss < 0.5% or > 3% from entry
-- RSI > 80 for LONG or RSI < 20 for SHORT
-- Price structure contradicts trade direction
-- Entry/SL/TP levels incoherent (e.g., SL > Entry for LONG)
+TIMEFRAME RULES:
 
-APPROVAL CRITERIA:
-- Clear market structure (HH/HL for LONG, LH/LL for SHORT)
-- Trend aligned with direction (EMA50/EMA200)
-- Adequate R:R ratio (minimum 1.5 at TP1)
-- RSI supports direction
-- Valid SMC pattern (Order Block, FVG, BOS)
+15m (scalping):
+- SL range: 0.3%-1.5% from entry
+- Min R:R 1.5 at TP1
+- Last 5 candles must show directional momentum
+- Volume spike on setup candle increases confidence
+- Avoid low-volume consolidation entries
+- Faster invalidation: if price doesn't move in 2-3 candles, setup weakens
+
+1H (intraday swing):
+- SL range: 0.5%-3% from entry
+- Min R:R 2.0 at TP1
+- Clear market structure required (HH/HL or LH/LL)
+- EMA alignment with direction required
+- Volume confirmation on key candles preferred
+
+HARD REJECT (any timeframe):
+- Price structure contradicts direction
+- Entry/SL/TP incoherent
+- R:R < 1.5 at TP1
+- Ranging market without clear bias
+- Counter-trend without reversal evidence
+- ATR too low for meaningful move
+
+CONFLUENCE SCORING (total 100):
++15: Clean structure (HH/HL or LH/LL)
++15: EMA50/200 aligned with direction
++10: RSI supports (not extreme against)
++10: Volume confirms setup candle
++10: Price at key SMC level (OB/FVG/BOS)
++10: ATR shows adequate volatility
++10: Last 5 candles directional momentum
++10: Clean R:R geometry
++10: No S/R blocking TP1
 
 GRADING:
-- A+: Perfect setup, high confluence, strong trend alignment (confidence 85-100)
-- A: Solid setup, good R:R, clear structure (confidence 70-84)
-- B+: Acceptable setup, minor concerns (confidence 60-69)
-- B: Marginal, proceed with caution (confidence 50-59)
-- REJECT: Fails criteria, do not trade (confidence < 50)
+A+ (85-100): Exceptional, high probability
+A (70-84): Strong, good to trade
+B+ (60-69): Acceptable, trade with discipline
+REJECT (<60): Insufficient confluence
 
-When REJECTING, you MUST provide:
-1. reason: Clear, concise explanation (max 2 sentences)
-2. riskNotes: List of specific risks identified
-3. improvements: Actionable steps to make the trade valid
-4. suggestedAdjustments (optional): Better entry/SL/TP levels
+Grade B is ELIMINATED. 60+ or REJECT. No marginal trades.
 
-Respond ONLY via the analyze_signal function. All text must be in English.`
+When REJECTING: reason (2 sentences), riskNotes, improvements, suggestedAdjustments
+When APPROVING: reason (2 sentences), riskNotes, improvements
+
+Respond ONLY via analyze_signal. English only.`
 
 async function confirmWithAI(
   pair: string,
@@ -844,6 +1075,7 @@ async function confirmWithAI(
   ema50Value: number,
   ema200Value: number,
   rsiValue: number,
+  atrValue: number,
   trend: string
 ): Promise<AIConfirmation | null> {
   const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
@@ -859,42 +1091,28 @@ async function confirmWithAI(
     const candlesSummary = recentCandles.map((c, i) => {
       const change = ((c.close - c.open) / c.open * 100).toFixed(2)
       const direction = c.close >= c.open ? 'BULL' : 'BEAR'
-      return `${i + 1}. ${direction} O:${c.open.toFixed(4)} H:${c.high.toFixed(4)} L:${c.low.toFixed(4)} C:${c.close.toFixed(4)} (${change}%)`
+      return `${i + 1}. ${direction} O:${c.open.toFixed(4)} H:${c.high.toFixed(4)} L:${c.low.toFixed(4)} C:${c.close.toFixed(4)} V:${c.volume.toFixed(2)} (${change}%)`
     }).join('\n')
     
     const lastPrice = candles[candles.length - 1].close
     const riskPercent = (setup.riskR / setup.entry * 100).toFixed(2)
+    const atrPercent = (atrValue / lastPrice) * 100
     
-    const userPrompt = `Analyze this trading setup:
+    const userPrompt = `Analyze this ${timeframe} setup:
 
-**Pair:** ${pair}
-**Timeframe:** ${timeframe}
-**Setup Type:** ${setup.setup}
-**Direction:** ${setup.direction}
-**Initial Confidence:** ${setup.confidence}%
+Pair: ${pair} | TF: ${timeframe} | Setup: ${setup.setup} | Dir: ${setup.direction}
+Algo confidence: ${setup.confidence}% (your assessment may differ)
 
-**Price Levels:**
-- Current Price: ${lastPrice.toFixed(4)}
-- Entry: ${setup.entry.toFixed(4)}
-- Stop Loss: ${setup.stopLoss.toFixed(4)} (Risk: ${riskPercent}%)
-- TP1 (1.5R): ${setup.takeProfit1.toFixed(4)}
-- TP2 (2.5R): ${setup.takeProfit2.toFixed(4)}
-- TP3 (4.0R): ${setup.takeProfit3.toFixed(4)}
-- Risk (R): ${setup.riskR.toFixed(4)}
+Levels: Entry ${setup.entry.toFixed(4)} | SL ${setup.stopLoss.toFixed(4)} (${riskPercent}%) | TP1 ${setup.takeProfit1.toFixed(4)} | TP2 ${setup.takeProfit2.toFixed(4)} | TP3 ${setup.takeProfit3.toFixed(4)}
 
-**Technical Indicators:**
-- EMA 50: ${ema50Value.toFixed(4)} (Price ${lastPrice > ema50Value ? 'ABOVE' : 'BELOW'})
-- EMA 200: ${ema200Value.toFixed(4)} (Price ${lastPrice > ema200Value ? 'ABOVE' : 'BELOW'})
-- RSI (14): ${rsiValue.toFixed(1)}
-- Trend: ${trend.toUpperCase()}
+Indicators: EMA50 ${ema50Value.toFixed(4)} (${lastPrice > ema50Value ? 'ABOVE' : 'BELOW'}) | EMA200 ${ema200Value.toFixed(4)} (${lastPrice > ema200Value ? 'ABOVE' : 'BELOW'}) | RSI ${rsiValue.toFixed(1)} | ATR ${atrValue.toFixed(4)} (${atrPercent.toFixed(2)}%) | Trend: ${trend.toUpperCase()}
 
-**Algorithmic Analysis:**
-${setup.analysis}
+Detection: ${setup.analysis}
 
-**Last 20 Candles:**
+Last 20 candles (with volume):
 ${candlesSummary}
 
-Analyze critically and use the analyze_signal function to respond.`
+Score confluence and respond via analyze_signal.`
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -929,7 +1147,7 @@ Analyze critically and use the analyze_signal function to respond.`
                 },
                 grade: {
                   type: 'string',
-                  enum: ['A+', 'A', 'B+', 'B', 'REJECT'],
+                  enum: ['A+', 'A', 'B+', 'REJECT'],
                   description: 'Grade for the setup quality'
                 },
                 reason: {
@@ -983,6 +1201,13 @@ Analyze critically and use the analyze_signal function to respond.`
     }
 
     const args = toolUse.input as AIConfirmation
+
+    // Safety: grade 'B' was eliminated, coerce any stray B response to REJECT
+    if ((args.grade as string) === 'B') {
+      args.approve = false
+      args.grade = 'REJECT' as AIConfirmation['grade']
+    }
+
     console.log(`[AI] ${pair}: approve=${args.approve}, grade=${args.grade}, confidence=${args.confidence}`)
 
     return args
@@ -1180,6 +1405,7 @@ Deno.serve(async (req) => {
         const ema50 = calculateEMA(closePrices, 50)
         const ema200 = calculateEMA(closePrices, 200)
         const rsi = calculateRSI(closePrices, 14)
+        const atr = calculateATR(candles, 14)
         
         // Find patterns
         const swings = findSwingPoints(candles)
@@ -1192,7 +1418,9 @@ Deno.serve(async (req) => {
         const setups: (SignalSetup | null)[] = [
           analyzeSetup1_SweepOB(candles, swings, orderBlocks),
           analyzeSetup2_FVGTrend(candles, fvgs, trend, rsi),
-          analyzeSetup3_BOSRetest(candles, swings, bos)
+          analyzeSetup3_BOSRetest(candles, swings, bos),
+          analyzeSetup4_EMABounce(candles, ema50, ema200, trend, rsi),
+          analyzeSetup5_VolumeDivergence(candles, swings, orderBlocks, fvgs, rsi)
         ]
 
         // Find best setup (highest confidence)
@@ -1207,8 +1435,8 @@ Deno.serve(async (req) => {
           // Store original confidence BEFORE any bonus
           const originalConfidence = bestSetup.confidence
 
-          // Check for confluence (multiple setups increase confidence)
-          const confluenceBonus = (validSetups.length - 1) * 10
+          // Check for confluence (multiple setups increase confidence, capped at +20)
+          const confluenceBonus = Math.min((validSetups.length - 1) * 10, 20)
           bestSetup.confidence = Math.min(100, bestSetup.confidence + confluenceBonus)
 
           // === NORMALIZE LEVELS (TP1=1.5R, TP2=2.5R, TP3=4R) ===
@@ -1226,6 +1454,7 @@ Deno.serve(async (req) => {
           const currentEma50 = ema50[candles.length - 1] || 0
           const currentEma200 = ema200[candles.length - 1] || 0
           const currentRsi = rsi[rsi.length - 1] || 50
+          const currentAtr = Number.isFinite(atr[atr.length - 1]) ? atr[atr.length - 1] : 0
 
           // === CONFIRM WITH AI (Senior Analyst) ===
           console.log(`[AI] Requesting analysis for ${pair.symbol} ${normalized.setup}...`)
@@ -1237,6 +1466,7 @@ Deno.serve(async (req) => {
             currentEma50,
             currentEma200,
             currentRsi,
+            currentAtr,
             trend
           )
 

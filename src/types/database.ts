@@ -46,7 +46,7 @@ export interface Signal {
   take_profit_3: number;
   analysis: string | null;
   status: 'active' | 'expired' | 'hit_tp' | 'hit_sl';
-  setup: 'SWEEP_OB' | 'FVG_TREND' | 'BOS_RETEST' | null;
+  setup: 'SWEEP_OB' | 'FVG_TREND' | 'BOS_RETEST' | 'EMA_BOUNCE' | 'VOLUME_DIVERGENCE' | null;
   confidence: number | null;
   meta: Record<string, unknown> | null;
   created_at: string;
