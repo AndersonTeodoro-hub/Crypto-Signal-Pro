@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,6 +31,7 @@ export default function Dashboard() {
   const [signals, setSignals] = useState<SignalWithPair[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
+  const lastToastAt = useRef<number>(0);
 
   // Load user settings
   useEffect(() => {
@@ -87,22 +88,22 @@ export default function Dashboard() {
   // Fetch signals
   useEffect(() => {
     async function fetchSignals() {
-      if (!selectedPair) {
-        setSignals([]);
-        return;
-      }
-
-      const { data, error } = await supabase
+      let query = supabase
         .from('signals')
         .select(`
           *,
           allowed_pairs (*)
         `)
-        .eq('pair_id', selectedPair)
         .eq('timeframe', timeframe)
         .eq('status', 'active')
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(30);
+
+      if (selectedPair) {
+        query = query.eq('pair_id', selectedPair);
+      }
+
+      const { data, error } = await query;
 
       if (!error && data) {
         setSignals(data as SignalWithPair[]);
@@ -114,18 +115,22 @@ export default function Dashboard() {
 
   // Realtime subscription
   useEffect(() => {
-    if (!selectedPair) return;
-
     const channel = supabase
       .channel('signals-realtime')
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'signals',
-          filter: `pair_id=eq.${selectedPair}`,
-        },
+        selectedPair
+          ? {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'signals',
+              filter: `pair_id=eq.${selectedPair}`,
+            }
+          : {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'signals',
+            },
         async (payload) => {
           // Fetch the new signal with pair data
           const { data } = await supabase
@@ -136,28 +141,31 @@ export default function Dashboard() {
 
           if (data && data.timeframe === timeframe) {
             setSignals((prev) => [data as SignalWithPair, ...prev]);
-            
+
             const signalData = data as SignalWithPair;
             const pairSymbol = signalData.allowed_pairs?.symbol || 'Signal';
             const direction = signalData.direction === 'LONG' ? 'BUY' : 'SELL';
-            
-            // Show toast
-            toast({
-              title: `🚀 ${t('dashboard.newSignal')}`,
-              description: `${pairSymbol} - ${direction} (${signalData.timeframe}) Grade ${signalData.grade}`,
-            });
-            
-            // Play sound if enabled (defaults to true)
-            const soundEnabled = localStorage.getItem('signal_sound') !== 'false';
-            if (soundEnabled) {
-              playSignalSound();
+
+            // Throttle: at most one toast / desktop notification per 30s
+            const now = Date.now();
+            if (now - lastToastAt.current >= 30_000) {
+              lastToastAt.current = now;
+
+              toast({
+                title: `🚀 ${t('dashboard.newSignal')}`,
+                description: `${pairSymbol} - ${direction} (${signalData.timeframe}) Grade ${signalData.grade}`,
+              });
+
+              const soundEnabled = localStorage.getItem('signal_sound') !== 'false';
+              if (soundEnabled) {
+                playSignalSound();
+              }
+
+              showBrowserNotification(
+                `New Signal: ${pairSymbol}`,
+                `${direction} (${signalData.timeframe}) - Grade ${signalData.grade}`
+              );
             }
-            
-            // Show browser notification
-            showBrowserNotification(
-              `New Signal: ${pairSymbol}`,
-              `${direction} (${signalData.timeframe}) - Grade ${signalData.grade}`
-            );
           }
         }
       )
@@ -311,7 +319,6 @@ export default function Dashboard() {
               <div>
                 <label className="text-sm text-muted-foreground mb-2 block">
                   {t('dashboard.pair')}
-                  {isFree && <span className="text-xs ml-2">{t('dashboard.pairLimit')}</span>}
                 </label>
                 <PairSelector 
                   value={selectedPair} 
@@ -355,16 +362,7 @@ export default function Dashboard() {
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">{t('dashboard.signals')}</h2>
           
-          {!selectedPair ? (
-            <Card className="glass border-border/50">
-              <CardContent className="py-12">
-                <div className="text-center">
-                  <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">{t('dashboard.selectPair')}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : signals.length === 0 ? (
+          {signals.length === 0 ? (
             <Card className="glass border-border/50">
               <CardContent className="py-12">
                 <div className="text-center">

@@ -16,14 +16,16 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { AllowedPair } from '@/types/database';
 
 interface PairSelectorProps {
   value: string | null;
-  onValueChange: (value: string) => void;
+  onValueChange: (value: string | null) => void;
 }
 
 export function PairSelector({ value, onValueChange }: PairSelectorProps) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [pairs, setPairs] = useState<AllowedPair[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +66,7 @@ export function PairSelector({ value, onValueChange }: PairSelectorProps) {
               <span className="text-muted-foreground text-sm">({selectedPair.name})</span>
             </span>
           ) : (
-            <span className="text-muted-foreground">Select a pair...</span>
+            <span className="font-semibold">{t('dashboard.allPairs')}</span>
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -75,6 +77,22 @@ export function PairSelector({ value, onValueChange }: PairSelectorProps) {
           <CommandList>
             <CommandEmpty>No pair found.</CommandEmpty>
             <CommandGroup>
+              <CommandItem
+                key="__all__"
+                value={t('dashboard.allPairs')}
+                onSelect={() => {
+                  onValueChange(null);
+                  setOpen(false);
+                }}
+              >
+                <Check
+                  className={cn(
+                    'mr-2 h-4 w-4',
+                    value === null ? 'opacity-100' : 'opacity-0'
+                  )}
+                />
+                <span className="font-semibold">{t('dashboard.allPairs')}</span>
+              </CommandItem>
               {pairs.map((pair) => (
                 <CommandItem
                   key={pair.id}
