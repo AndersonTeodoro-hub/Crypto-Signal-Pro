@@ -105,7 +105,7 @@ const TIMEFRAME_MAP: Record<string, { bybit: string; okx: string }> = {
 }
 
 const CANDLE_LIMITS: Record<string, number> = {
-  '15m': 150,
+  '15m': 250,
   '1H':  220
 }
 
