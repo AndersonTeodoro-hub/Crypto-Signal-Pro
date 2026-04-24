@@ -9,8 +9,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 interface ActivePairsFiltersProps {
   showOnlyOpen: boolean;
   onShowOnlyOpenChange: (value: boolean) => void;
-  timeframeFilter: 'all' | '1H' | '4H';
-  onTimeframeFilterChange: (value: 'all' | '1H' | '4H') => void;
+  timeframeFilter: 'all' | '15m' | '1H';
+  onTimeframeFilterChange: (value: 'all' | '15m' | '1H') => void;
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
   resultCount: number;
@@ -30,7 +30,7 @@ export function ActivePairsFilters({
   const { t } = useLanguage();
 
   const handleTimeframeChange = (value: string) => {
-    if (value && (value === 'all' || value === '1H' || value === '4H')) {
+    if (value && (value === 'all' || value === '15m' || value === '1H')) {
       onTimeframeFilterChange(value);
     }
   };
@@ -82,17 +82,17 @@ export function ActivePairsFilters({
             >
               {t('activePairs.allTimeframes')}
             </ToggleGroupItem>
-            <ToggleGroupItem 
-              value="1H" 
+            <ToggleGroupItem
+              value="15m"
+              className="px-4 py-1.5 text-sm rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+            >
+              15m
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="1H"
               className="px-4 py-1.5 text-sm rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
             >
               1H
-            </ToggleGroupItem>
-            <ToggleGroupItem 
-              value="4H" 
-              className="px-4 py-1.5 text-sm rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-            >
-              4H
             </ToggleGroupItem>
           </ToggleGroup>
         </div>

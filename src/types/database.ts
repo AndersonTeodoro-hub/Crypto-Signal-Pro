@@ -27,7 +27,7 @@ export interface UserSettings {
   id: string;
   user_id: string;
   selected_pair_id: string | null;
-  timeframe: '1H' | '4H';
+  timeframe: '15m' | '1H';
   notifications_enabled: boolean;
   created_at: string;
   updated_at: string;
@@ -61,7 +61,7 @@ export interface Signal {
 export interface Candle {
   id: string;
   pair_id: string;
-  timeframe: '1H' | '4H';
+  timeframe: '15m' | '1H';
   open_time: string;
   open: number;
   high: number;

@@ -55,8 +55,8 @@ interface SignalPerformance {
   tp2: number;
   tp3: number;
   byTimeframe: {
+    '15m': { wins: number; losses: number };
     '1H': { wins: number; losses: number };
-    '4H': { wins: number; losses: number };
   };
 }
 
@@ -66,8 +66,8 @@ export default function Admin() {
   const navigate = useNavigate();
   const { toast } = useToast();
   
+  const [generating15m, setGenerating15m] = useState(false);
   const [generating1H, setGenerating1H] = useState(false);
-  const [generating4H, setGenerating4H] = useState(false);
   const [updatingOutcomes, setUpdatingOutcomes] = useState(false);
   const [history, setHistory] = useState<GenerationResult[]>([]);
   const [outcomeHistory, setOutcomeHistory] = useState<OutcomeUpdateResult[]>([]);
@@ -177,13 +177,13 @@ export default function Admin() {
       tp2: wins.filter(s => s.outcome_tp === 2).length,
       tp3: wins.filter(s => s.outcome_tp === 3).length,
       byTimeframe: {
+        '15m': {
+          wins: wins.filter(s => s.timeframe === '15m').length,
+          losses: losses.filter(s => s.timeframe === '15m').length
+        },
         '1H': {
           wins: wins.filter(s => s.timeframe === '1H').length,
           losses: losses.filter(s => s.timeframe === '1H').length
-        },
-        '4H': {
-          wins: wins.filter(s => s.timeframe === '4H').length,
-          losses: losses.filter(s => s.timeframe === '4H').length
         }
       }
     };
@@ -194,8 +194,8 @@ export default function Admin() {
     navigate('/');
   };
 
-  const generateSignals = async (timeframe: '1H' | '4H') => {
-    const setLoading = timeframe === '1H' ? setGenerating1H : setGenerating4H;
+  const generateSignals = async (timeframe: '15m' | '1H') => {
+    const setLoading = timeframe === '15m' ? setGenerating15m : setGenerating1H;
     setLoading(true);
 
     try {
@@ -493,16 +493,16 @@ export default function Admin() {
                     <p className="text-sm font-medium mb-2">{t('admin.byTimeframe')}</p>
                     <div className="flex gap-4">
                       <div>
+                        <span className="text-sm text-muted-foreground">15m: </span>
+                        <span className="text-success">{currentPerformance.byTimeframe['15m'].wins}W</span>
+                        <span className="text-muted-foreground">/</span>
+                        <span className="text-destructive">{currentPerformance.byTimeframe['15m'].losses}L</span>
+                      </div>
+                      <div>
                         <span className="text-sm text-muted-foreground">1H: </span>
                         <span className="text-success">{currentPerformance.byTimeframe['1H'].wins}W</span>
                         <span className="text-muted-foreground">/</span>
                         <span className="text-destructive">{currentPerformance.byTimeframe['1H'].losses}L</span>
-                      </div>
-                      <div>
-                        <span className="text-sm text-muted-foreground">4H: </span>
-                        <span className="text-success">{currentPerformance.byTimeframe['4H'].wins}W</span>
-                        <span className="text-muted-foreground">/</span>
-                        <span className="text-destructive">{currentPerformance.byTimeframe['4H'].losses}L</span>
                       </div>
                     </div>
                   </div>
@@ -522,6 +522,37 @@ export default function Admin() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
+                {t('admin.timeframe15m')}
+              </CardTitle>
+              <CardDescription>
+                {t('admin.generateFor15m')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                onClick={() => generateSignals('15m')}
+                disabled={generating15m || generating1H || updatingOutcomes}
+                className="w-full"
+              >
+                {generating15m ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {t('admin.generating')}
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    {t('admin.generateNow15m')}
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="glass border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
                 {t('admin.timeframe1H')}
               </CardTitle>
               <CardDescription>
@@ -529,9 +560,9 @@ export default function Admin() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button 
-                onClick={() => generateSignals('1H')} 
-                disabled={generating1H || generating4H || updatingOutcomes}
+              <Button
+                onClick={() => generateSignals('1H')}
+                disabled={generating15m || generating1H || updatingOutcomes}
                 className="w-full"
               >
                 {generating1H ? (
@@ -549,37 +580,6 @@ export default function Admin() {
             </CardContent>
           </Card>
 
-          <Card className="glass border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                {t('admin.timeframe4H')}
-              </CardTitle>
-              <CardDescription>
-                {t('admin.generateFor4H')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                onClick={() => generateSignals('4H')} 
-                disabled={generating1H || generating4H || updatingOutcomes}
-                className="w-full"
-              >
-                {generating4H ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {t('admin.generating')}
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-4 w-4 mr-2" />
-                    {t('admin.generateNow4H')}
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-
           <Card className="glass border-border/50 border-primary/30">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -591,9 +591,9 @@ export default function Admin() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button 
-                onClick={runOutcomeUpdater} 
-                disabled={generating1H || generating4H || updatingOutcomes}
+              <Button
+                onClick={runOutcomeUpdater}
+                disabled={generating15m || generating1H || updatingOutcomes}
                 className="w-full"
                 variant="secondary"
               >
@@ -671,7 +671,7 @@ export default function Admin() {
                             ) : (
                               <XCircle className="h-5 w-5 text-destructive" />
                             )}
-                            <Badge variant={item.timeframe === '1H' ? 'default' : 'secondary'}>
+                            <Badge variant={item.timeframe === '15m' ? 'default' : 'secondary'}>
                               {item.timeframe}
                             </Badge>
                             <span className="text-sm text-muted-foreground">

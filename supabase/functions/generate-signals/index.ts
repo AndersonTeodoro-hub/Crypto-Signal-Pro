@@ -100,8 +100,13 @@ interface KlineData {
 }
 
 const TIMEFRAME_MAP: Record<string, { bybit: string; okx: string }> = {
-  '1H': { bybit: '60', okx: '1H' },
-  '4H': { bybit: '240', okx: '4H' }
+  '15m': { bybit: '15', okx: '15m' },
+  '1H':  { bybit: '60', okx: '1H' }
+}
+
+const CANDLE_LIMITS: Record<string, number> = {
+  '15m': 150,
+  '1H':  220
 }
 
 const FETCH_TIMEOUT = 8000 // 8 seconds
@@ -183,7 +188,7 @@ async function fetchWithRetry(
 
 async function fetchBybitKlines(
   symbol: string,
-  timeframe: '1H' | '4H',
+  timeframe: '15m' | '1H',
   limit: number = 220
 ): Promise<KlineData[] | null> {
   // Bybit uses format "BTCUSDT" (no slash)
@@ -246,7 +251,7 @@ async function fetchBybitKlines(
 
 async function fetchOKXKlines(
   symbol: string,
-  timeframe: '1H' | '4H',
+  timeframe: '15m' | '1H',
   limit: number = 220
 ): Promise<KlineData[] | null> {
   // OKX uses format "BTC-USDT" (with hyphen)
@@ -353,7 +358,7 @@ async function fetchOKXKlines(
 
 async function fetchKlines(
   symbol: string,
-  timeframe: '1H' | '4H',
+  timeframe: '15m' | '1H',
   limit: number = 220
 ): Promise<KlineData[] | null> {
   // Try OKX first (Bybit returns 403 from edge function datacenter)
@@ -1013,16 +1018,18 @@ Deno.serve(async (req) => {
 
     // Parse body
     const body = await req.json()
-    const timeframe = body.timeframe as '1H' | '4H'
+    const timeframe = body.timeframe as '15m' | '1H'
     const chunk = typeof body.chunk === 'number' ? body.chunk : 0
     const chunks = typeof body.chunks === 'number' && body.chunks > 0 ? body.chunks : 1
     
-    if (!timeframe || !['1H', '4H'].includes(timeframe)) {
+    if (!timeframe || !['15m', '1H'].includes(timeframe)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid timeframe. Use 1H or 4H' }),
+        JSON.stringify({ error: 'Invalid timeframe. Use 15m or 1H' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    const candleLimit = CANDLE_LIMITS[timeframe]
 
     // Validate chunk/chunks
     if (chunk < 0 || chunk >= chunks) {
@@ -1065,7 +1072,7 @@ Deno.serve(async (req) => {
     // === Quick OKX connection test for BTCUSDT (only on chunk 0) ===
     if (chunk === 0) {
       console.log('=== Running OKX connection test for BTCUSDT ===')
-      const testKlines = await fetchOKXKlines('BTCUSDT', timeframe, 220)
+      const testKlines = await fetchOKXKlines('BTCUSDT', timeframe, candleLimit)
       if (testKlines) {
         console.log(`=== OKX test SUCCESS: ${testKlines.length} candles ===`)
         console.log(`    First candle: ${new Date(testKlines[0].time).toISOString()}`)
@@ -1128,7 +1135,7 @@ Deno.serve(async (req) => {
         console.log(`Processing pair: ${pair.symbol}`)
         
         // Fetch candles from OKX (fallback: Bybit)
-        const klineData = await fetchKlines(pair.symbol, timeframe, 220)
+        const klineData = await fetchKlines(pair.symbol, timeframe, candleLimit)
 
         if (!klineData || klineData.length === 0) {
           console.error(`Failed to fetch klines for ${pair.symbol}`)
@@ -1303,7 +1310,8 @@ Deno.serve(async (req) => {
                   original_confidence: originalConfidence,
                   setup_type: normalized.setup
                 },
-                expires_at: new Date(Date.now() + (timeframe === '1H' ? 4 : 16) * 60 * 60 * 1000).toISOString()
+                // 15m: 1h expiry (4 ciclos × 15min) | 1H: 4h expiry (4 ciclos × 1h)
+                expires_at: new Date(Date.now() + (timeframe === '15m' ? 1 : 4) * 60 * 60 * 1000).toISOString()
               })
 
             if (insertError) {

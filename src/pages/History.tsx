@@ -52,10 +52,10 @@ export default function History() {
     const tp3 = wins.filter(s => s.outcome_tp === 3).length;
     
     // Timeframe breakdown
+    const wins15m = wins.filter(s => s.timeframe === '15m').length;
+    const losses15m = losses.filter(s => s.timeframe === '15m').length;
     const wins1H = wins.filter(s => s.timeframe === '1H').length;
     const losses1H = losses.filter(s => s.timeframe === '1H').length;
-    const wins4H = wins.filter(s => s.timeframe === '4H').length;
-    const losses4H = losses.filter(s => s.timeframe === '4H').length;
     
     // Average PnL
     const winsPnl = wins.reduce((sum, s) => sum + (s.pnl_percent || 0), 0);
@@ -71,7 +71,7 @@ export default function History() {
       active: active.length,
       winRate,
       tp1, tp2, tp3,
-      wins1H, losses1H, wins4H, losses4H,
+      wins15m, losses15m, wins1H, losses1H,
       avgWinPnl,
       avgLossPnl
     };
@@ -309,17 +309,17 @@ export default function History() {
                 <p className="text-sm text-muted-foreground mb-2">{t('trackRecord.byTimeframe')}</p>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-3 rounded-lg bg-muted/20">
+                    <p className="font-medium text-sm mb-1">15m</p>
+                    <div className="flex gap-3 text-sm">
+                      <span className="text-success">W: {stats.wins15m}</span>
+                      <span className="text-destructive">L: {stats.losses15m}</span>
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/20">
                     <p className="font-medium text-sm mb-1">1H</p>
                     <div className="flex gap-3 text-sm">
                       <span className="text-success">W: {stats.wins1H}</span>
                       <span className="text-destructive">L: {stats.losses1H}</span>
-                    </div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-muted/20">
-                    <p className="font-medium text-sm mb-1">4H</p>
-                    <div className="flex gap-3 text-sm">
-                      <span className="text-success">W: {stats.wins4H}</span>
-                      <span className="text-destructive">L: {stats.losses4H}</span>
                     </div>
                   </div>
                 </div>
@@ -377,8 +377,8 @@ export default function History() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t('history.allTimeframes')}</SelectItem>
+                    <SelectItem value="15m">15m</SelectItem>
                     <SelectItem value="1H">1H</SelectItem>
-                    <SelectItem value="4H">4H</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

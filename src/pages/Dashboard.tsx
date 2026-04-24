@@ -27,7 +27,7 @@ export default function Dashboard() {
   const { effectivePlan, loading: planLoading, canAccessTimeframe, isFree, isAdmin } = useUserPlan();
   
   const [selectedPair, setSelectedPair] = useState<string | null>(null);
-  const [timeframe, setTimeframe] = useState<string>('4H');
+  const [timeframe, setTimeframe] = useState<string>('1H');
   const [signals, setSignals] = useState<SignalWithPair[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -50,7 +50,7 @@ export default function Dashboard() {
         if (canAccessTimeframe(savedTimeframe)) {
           setTimeframe(savedTimeframe);
         } else {
-          setTimeframe('4H'); // Default to 4H for free users
+          setTimeframe('1H'); // Default 1H (free trial — all timeframes unlocked)
         }
       }
       setLoading(false);
@@ -179,7 +179,7 @@ export default function Dashboard() {
     } else {
       toast({
         title: t('dashboard.upgradeRequired'),
-        description: t('dashboard.upgradeRequired1H'),
+        description: t('dashboard.upgradeRequiredTimeframe'),
         variant: 'destructive',
       });
     }
@@ -324,8 +324,18 @@ export default function Dashboard() {
                 </label>
                 <Tabs value={timeframe} onValueChange={handleTimeframeChange}>
                   <TabsList className="w-full">
-                    <TabsTrigger 
-                      value="1H" 
+                    <TabsTrigger
+                      value="15m"
+                      className="flex-1 relative"
+                      disabled={!canAccessTimeframe('15m')}
+                    >
+                      15m
+                      {!canAccessTimeframe('15m') && (
+                        <Lock className="h-3 w-3 ml-1 opacity-50" />
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="1H"
                       className="flex-1 relative"
                       disabled={!canAccessTimeframe('1H')}
                     >
@@ -334,7 +344,6 @@ export default function Dashboard() {
                         <Lock className="h-3 w-3 ml-1 opacity-50" />
                       )}
                     </TabsTrigger>
-                    <TabsTrigger value="4H" className="flex-1">4H</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>

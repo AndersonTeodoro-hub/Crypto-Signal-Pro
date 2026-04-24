@@ -1,16 +1,17 @@
+// TODO: revert free plan after 30-day trial (granted 2026-04-24, expires 2026-05-24)
 export const PLANS = {
   free: {
     name: 'Free',
     monthlyPrice: 0,
     annualPrice: 0,
-    pairs: 1,
-    timeframes: ['4H'],
-    historyDays: 7,
+    pairs: 15,
+    timeframes: ['15m', '1H'],
+    historyDays: 30,
     features: [
-      '1 pair monitored',
-      '4H timeframe only',
-      '7-day history',
-      'Basic email alerts',
+      '15 pairs monitored (trial)',
+      '15m + 1H timeframes (trial)',
+      '30-day history',
+      'Realtime alerts',
     ],
   },
   basic: {
@@ -18,11 +19,11 @@ export const PLANS = {
     monthlyPrice: 39,
     annualPrice: 29,
     pairs: 10,
-    timeframes: ['1H', '4H'],
+    timeframes: ['15m', '1H'],
     historyDays: 30,
     features: [
       '10 pairs monitored',
-      '1H + 4H timeframes',
+      '15m + 1H timeframes',
       '30-day history',
       'Realtime alerts',
       'Priority support',
@@ -33,11 +34,11 @@ export const PLANS = {
     monthlyPrice: 99,
     annualPrice: 79,
     pairs: 50,
-    timeframes: ['1H', '4H'],
+    timeframes: ['15m', '1H'],
     historyDays: null, // unlimited
     features: [
       '50 pairs monitored',
-      '1H + 4H timeframes',
+      '15m + 1H timeframes',
       'Unlimited history',
       'Priority support',
       'AI-confirmed SMC signals',

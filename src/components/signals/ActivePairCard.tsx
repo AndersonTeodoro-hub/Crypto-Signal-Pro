@@ -24,9 +24,9 @@ interface Signal {
 interface ActivePairCardProps {
   symbol: string;
   pairName: string;
+  signal15m: Signal | null;
   signal1H: Signal | null;
-  signal4H: Signal | null;
-  visibleTimeframes?: 'all' | '1H' | '4H';
+  visibleTimeframes?: 'all' | '15m' | '1H';
   onClick?: () => void;
   isLoading?: boolean;
 }
@@ -152,11 +152,11 @@ function SignalBlock({ signal, timeframe }: { signal: Signal | null; timeframe: 
   );
 }
 
-export function ActivePairCard({ 
-  symbol, 
-  pairName, 
-  signal1H, 
-  signal4H, 
+export function ActivePairCard({
+  symbol,
+  pairName,
+  signal15m,
+  signal1H,
   visibleTimeframes = 'all',
   onClick,
   isLoading = false
@@ -181,8 +181,8 @@ export function ActivePairCard({
   }
 
   // Determine if card has any active signal
-  const hasActiveSignal = signal1H?.status === 'active' || signal4H?.status === 'active';
-  const hasTpHit = signal1H?.status === 'hit_tp' || signal4H?.status === 'hit_tp';
+  const hasActiveSignal = signal15m?.status === 'active' || signal1H?.status === 'active';
+  const hasTpHit = signal15m?.status === 'hit_tp' || signal1H?.status === 'hit_tp';
 
   return (
     <Card 
@@ -202,11 +202,11 @@ export function ActivePairCard({
       </CardHeader>
       <CardContent>
         <div className="flex gap-3">
+          {(visibleTimeframes === 'all' || visibleTimeframes === '15m') && (
+            <SignalBlock signal={signal15m} timeframe="15m" />
+          )}
           {(visibleTimeframes === 'all' || visibleTimeframes === '1H') && (
             <SignalBlock signal={signal1H} timeframe="1H" />
-          )}
-          {(visibleTimeframes === 'all' || visibleTimeframes === '4H') && (
-            <SignalBlock signal={signal4H} timeframe="4H" />
           )}
         </div>
         <p className="text-xs text-muted-foreground text-center mt-3">

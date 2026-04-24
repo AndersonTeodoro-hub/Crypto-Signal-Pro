@@ -39,8 +39,8 @@ interface PairWithSignals {
   symbol: string;
   pairName: string;
   rank: number;
+  signal15m: Signal | null;
   signal1H: Signal | null;
-  signal4H: Signal | null;
 }
 
 export default function ActivePairs() {
@@ -55,7 +55,7 @@ export default function ActivePairs() {
 
   // Filters
   const [showOnlyOpen, setShowOnlyOpen] = useState(false);
-  const [timeframeFilter, setTimeframeFilter] = useState<'all' | '1H' | '4H'>('all');
+  const [timeframeFilter, setTimeframeFilter] = useState<'all' | '15m' | '1H'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Modal
@@ -107,16 +107,16 @@ export default function ActivePairs() {
 
     // Build pair objects with their signals
     return filteredPairs.map(pair => {
+      const signal15m = signals.find(s => s.pair_id === pair.id && s.timeframe === '15m') || null;
       const signal1H = signals.find(s => s.pair_id === pair.id && s.timeframe === '1H') || null;
-      const signal4H = signals.find(s => s.pair_id === pair.id && s.timeframe === '4H') || null;
 
       return {
         pairId: pair.id,
         symbol: pair.symbol,
         pairName: pair.name,
         rank: pair.rank,
-        signal1H,
-        signal4H
+        signal15m,
+        signal1H
       };
     });
   }, [allPairs, signals, effectivePlan]);
@@ -137,7 +137,7 @@ export default function ActivePairs() {
     // Timeframe filter
     if (timeframeFilter !== 'all') {
       result = result.filter(p => {
-        const signal = timeframeFilter === '1H' ? p.signal1H : p.signal4H;
+        const signal = timeframeFilter === '15m' ? p.signal15m : p.signal1H;
         return signal !== null;
       });
     }
@@ -145,20 +145,20 @@ export default function ActivePairs() {
     // Open filter
     if (showOnlyOpen) {
       result = result.filter(p => {
+        if (timeframeFilter === '15m') return p.signal15m?.status === 'active';
         if (timeframeFilter === '1H') return p.signal1H?.status === 'active';
-        if (timeframeFilter === '4H') return p.signal4H?.status === 'active';
-        return p.signal1H?.status === 'active' || p.signal4H?.status === 'active';
+        return p.signal15m?.status === 'active' || p.signal1H?.status === 'active';
       });
     }
 
     // Sort: ACTIVE first, then HIT_TP, then HIT_SL, then no signal
     const statusOrder: Record<string, number> = { active: 0, hit_tp: 1, hit_sl: 2 };
-    
+
     return result.sort((a, b) => {
       const getStatus = (p: PairWithSignals) => {
+        const s15m = p.signal15m?.status || 'none';
         const s1H = p.signal1H?.status || 'none';
-        const s4H = p.signal4H?.status || 'none';
-        return Math.min(statusOrder[s1H] ?? 3, statusOrder[s4H] ?? 3);
+        return Math.min(statusOrder[s15m] ?? 3, statusOrder[s1H] ?? 3);
       };
 
       const orderA = getStatus(a);
@@ -169,12 +169,12 @@ export default function ActivePairs() {
       // Within OPEN, sort by most recent
       if (showOnlyOpen) {
         const dateA = Math.max(
-          new Date(a.signal1H?.created_at || 0).getTime(),
-          new Date(a.signal4H?.created_at || 0).getTime()
+          new Date(a.signal15m?.created_at || 0).getTime(),
+          new Date(a.signal1H?.created_at || 0).getTime()
         );
         const dateB = Math.max(
-          new Date(b.signal1H?.created_at || 0).getTime(),
-          new Date(b.signal4H?.created_at || 0).getTime()
+          new Date(b.signal15m?.created_at || 0).getTime(),
+          new Date(b.signal1H?.created_at || 0).getTime()
         );
         return dateB - dateA;
       }
@@ -252,30 +252,30 @@ export default function ActivePairs() {
       </h3>
       
       <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
-        {timeframeFilter === '1H' 
+        {timeframeFilter === '15m'
+          ? t('activePairs.noOpenSignalsHint15m')
+          : timeframeFilter === '1H'
           ? t('activePairs.noOpenSignalsHint1H')
-          : timeframeFilter === '4H'
-          ? t('activePairs.noOpenSignalsHint4H')
           : t('activePairs.noOpenSignalsHintAll')}
       </p>
-      
+
       <div className="flex gap-3">
-        {timeframeFilter === '1H' && (
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setTimeframeFilter('4H')}
-          >
-            {t('activePairs.view4H')}
-          </Button>
-        )}
-        {timeframeFilter === '4H' && (
-          <Button 
-            variant="outline" 
+        {timeframeFilter === '15m' && (
+          <Button
+            variant="outline"
             size="sm"
             onClick={() => setTimeframeFilter('1H')}
           >
             {t('activePairs.view1H')}
+          </Button>
+        )}
+        {timeframeFilter === '1H' && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setTimeframeFilter('15m')}
+          >
+            {t('activePairs.view15m')}
           </Button>
         )}
         <Button 
@@ -364,8 +364,8 @@ export default function ActivePairs() {
                   key={pair.pairId}
                   symbol={pair.symbol}
                   pairName={pair.pairName}
+                  signal15m={pair.signal15m}
                   signal1H={pair.signal1H}
-                  signal4H={pair.signal4H}
                   visibleTimeframes={timeframeFilter}
                   onClick={() => handleCardClick(pair)}
                 />

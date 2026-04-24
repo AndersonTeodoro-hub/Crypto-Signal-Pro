@@ -2,20 +2,20 @@ name: Generate Trading Signals
 
 on:
   schedule:
+    # 15m: Every 15 minutes
+    - cron: '*/15 * * * *'
     # 1H: Every hour at minute 2
     - cron: '2 * * * *'
-    # 4H: Every 4 hours at minute 6 (00:06, 04:06, 08:06, 12:06, 16:06, 20:06 UTC)
-    - cron: '6 0,4,8,12,16,20 * * *'
   workflow_dispatch:
     inputs:
       timeframe:
-        description: 'Timeframe to generate (1H or 4H)'
+        description: 'Timeframe to generate (15m or 1H)'
         required: true
         default: '1H'
         type: choice
         options:
+          - '15m'
           - '1H'
-          - '4H'
 
 jobs:
   generate-signals:
@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        chunk: [0, 1, 2, 3, 4, 5]
+        chunk: [0, 1, 2]
     
     steps:
       - name: Install jq
@@ -37,19 +37,19 @@ jobs:
           elif [ "${{ github.event.schedule }}" == "2 * * * *" ]; then
             echo "value=1H" >> $GITHUB_OUTPUT
           else
-            echo "value=4H" >> $GITHUB_OUTPUT
+            echo "value=15m" >> $GITHUB_OUTPUT
           fi
 
-      - name: Generate Signals (Chunk ${{ matrix.chunk }}/6)
+      - name: Generate Signals (Chunk ${{ matrix.chunk }}/3)
         shell: bash
         run: |
           set -euo pipefail
-          echo "Generating signals for timeframe: ${{ steps.timeframe.outputs.value }} chunk: ${{ matrix.chunk }}/6"
+          echo "Generating signals for timeframe: ${{ steps.timeframe.outputs.value }} chunk: ${{ matrix.chunk }}/3"
           URL="${{ secrets.SUPABASE_URL }}/functions/v1/generate-signals"
           PAYLOAD=$(jq -n \
             --arg tf "${{ steps.timeframe.outputs.value }}" \
             --argjson chunk "${{ matrix.chunk }}" \
-            --argjson chunks 6 \
+            --argjson chunks 3 \
             '{timeframe:$tf, chunk:$chunk, chunks:$chunks}')
           echo "POST $URL"
           echo "Payload: $PAYLOAD"
@@ -92,9 +92,9 @@ jobs:
                 exit 1
               fi
               if [[ "$signalsCreated" -eq 0 ]]; then
-                echo "::notice::Chunk ${{ matrix.chunk }}: No valid setups (OK) - processed $processed pairs in ${durationMs}ms"
+                echo "::notice::Chunk ${{ matrix.chunk }}/3: No valid setups (OK) - processed $processed pairs in ${durationMs}ms"
               else
-                echo "::notice::Chunk ${{ matrix.chunk }}: Successfully created $signalsCreated signals from $processed pairs in ${durationMs}ms"
+                echo "::notice::Chunk ${{ matrix.chunk }}/3: Successfully created $signalsCreated signals from $processed pairs in ${durationMs}ms"
               fi
               echo "Signal generation completed successfully!"
               exit 0
