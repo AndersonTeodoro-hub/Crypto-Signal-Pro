@@ -109,6 +109,16 @@ const CANDLE_LIMITS: Record<string, number> = {
   '1H':  220
 }
 
+// Format price string with precision adapted to magnitude
+// Avoids "0.0000" rendering for sub-cent assets (e.g. PEPE ~ 0.00000812)
+function formatPrice(price: number): string {
+  if (!Number.isFinite(price)) return '0'
+  const abs = Math.abs(price)
+  if (abs >= 1) return price.toFixed(4)
+  if (abs >= 0.01) return price.toFixed(6)
+  return price.toFixed(8)
+}
+
 const FETCH_TIMEOUT = 8000 // 8 seconds
 const MAX_RETRIES = 2
 const RETRY_DELAYS = [400, 900] // ms
@@ -866,7 +876,7 @@ function analyzeSetup4_EMABounce(
       takeProfit2: entry + risk * 2,
       takeProfit3: entry + risk * 3,
       confidence: 70,
-      analysis: `Bounce confirmado na ${touched.ema} (${touched.value.toFixed(4)}) em tendência de alta. Engulfing bullish com volume > média(10). RSI ${currentRSI.toFixed(0)} em zona de pullback.`,
+      analysis: `Bounce confirmado na ${touched.ema} (${formatPrice(touched.value)}) em tendência de alta. Engulfing bullish com volume > média(10). RSI ${currentRSI.toFixed(0)} em zona de pullback.`,
       meta: { touched, currentRSI, avgVol, candleVol: last.volume }
     }
   } else {
@@ -883,7 +893,7 @@ function analyzeSetup4_EMABounce(
       takeProfit2: entry - risk * 2,
       takeProfit3: entry - risk * 3,
       confidence: 70,
-      analysis: `Rejeição confirmada na ${touched.ema} (${touched.value.toFixed(4)}) em tendência de baixa. Engulfing bearish com volume > média(10). RSI ${currentRSI.toFixed(0)} em zona de pullback.`,
+      analysis: `Rejeição confirmada na ${touched.ema} (${formatPrice(touched.value)}) em tendência de baixa. Engulfing bearish com volume > média(10). RSI ${currentRSI.toFixed(0)} em zona de pullback.`,
       meta: { touched, currentRSI, avgVol, candleVol: last.volume }
     }
   }
@@ -1091,7 +1101,7 @@ async function confirmWithAI(
     const candlesSummary = recentCandles.map((c, i) => {
       const change = ((c.close - c.open) / c.open * 100).toFixed(2)
       const direction = c.close >= c.open ? 'BULL' : 'BEAR'
-      return `${i + 1}. ${direction} O:${c.open.toFixed(4)} H:${c.high.toFixed(4)} L:${c.low.toFixed(4)} C:${c.close.toFixed(4)} V:${c.volume.toFixed(2)} (${change}%)`
+      return `${i + 1}. ${direction} O:${formatPrice(c.open)} H:${formatPrice(c.high)} L:${formatPrice(c.low)} C:${formatPrice(c.close)} V:${c.volume.toFixed(2)} (${change}%)`
     }).join('\n')
     
     const lastPrice = candles[candles.length - 1].close
@@ -1103,9 +1113,9 @@ async function confirmWithAI(
 Pair: ${pair} | TF: ${timeframe} | Setup: ${setup.setup} | Dir: ${setup.direction}
 Algo confidence: ${setup.confidence}% (your assessment may differ)
 
-Levels: Entry ${setup.entry.toFixed(4)} | SL ${setup.stopLoss.toFixed(4)} (${riskPercent}%) | TP1 ${setup.takeProfit1.toFixed(4)} | TP2 ${setup.takeProfit2.toFixed(4)} | TP3 ${setup.takeProfit3.toFixed(4)}
+Levels: Entry ${formatPrice(setup.entry)} | SL ${formatPrice(setup.stopLoss)} (${riskPercent}%) | TP1 ${formatPrice(setup.takeProfit1)} | TP2 ${formatPrice(setup.takeProfit2)} | TP3 ${formatPrice(setup.takeProfit3)}
 
-Indicators: EMA50 ${ema50Value.toFixed(4)} (${lastPrice > ema50Value ? 'ABOVE' : 'BELOW'}) | EMA200 ${ema200Value.toFixed(4)} (${lastPrice > ema200Value ? 'ABOVE' : 'BELOW'}) | RSI ${rsiValue.toFixed(1)} | ATR ${atrValue.toFixed(4)} (${atrPercent.toFixed(2)}%) | Trend: ${trend.toUpperCase()}
+Indicators: EMA50 ${formatPrice(ema50Value)} (${lastPrice > ema50Value ? 'ABOVE' : 'BELOW'}) | EMA200 ${formatPrice(ema200Value)} (${lastPrice > ema200Value ? 'ABOVE' : 'BELOW'}) | RSI ${rsiValue.toFixed(1)} | ATR ${formatPrice(atrValue)} (${atrPercent.toFixed(2)}%) | Trend: ${trend.toUpperCase()}
 
 Detection: ${setup.analysis}
 
@@ -1455,7 +1465,7 @@ Deno.serve(async (req) => {
             continue
           }
 
-          console.log(`[Normalize] ${pair.symbol}: R=${normalized.riskR.toFixed(4)}, TP1=1.5R, TP2=2.5R, TP3=4R`)
+          console.log(`[Normalize] ${pair.symbol}: R=${formatPrice(normalized.riskR)}, TP1=1.5R, TP2=2.5R, TP3=4R`)
 
           // Get current indicator values for AI
           const currentEma50 = ema50[candles.length - 1] || 0
