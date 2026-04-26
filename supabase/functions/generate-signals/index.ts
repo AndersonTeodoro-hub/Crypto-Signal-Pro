@@ -1439,6 +1439,13 @@ Deno.serve(async (req) => {
           const confluenceBonus = Math.min((validSetups.length - 1) * 10, 20)
           bestSetup.confidence = Math.min(100, bestSetup.confidence + confluenceBonus)
 
+          // Pre-filter: skip AI call for low-confidence setups (cost optimization)
+          if (bestSetup.confidence < 60) {
+            console.log(`[SKIP] ${pair.symbol} - confidence ${bestSetup.confidence}% < 60`)
+            results.push({ pair: pair.symbol, error: 'Low confidence' })
+            continue
+          }
+
           // === NORMALIZE LEVELS (TP1=1.5R, TP2=2.5R, TP3=4R) ===
           const normalized = normalizeSetupLevels(bestSetup)
           
