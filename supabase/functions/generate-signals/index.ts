@@ -483,7 +483,8 @@ function calculateATR(candles: Candle[], period: number = 14): number[] {
 
 // ============= STRUCTURE =============
 
-function findSwingPoints(candles: Candle[], lookback: number = 5): SwingPoint[] {
+function findSwingPoints(candles: Candle[], timeframe: string): SwingPoint[] {
+  const lookback = timeframe === '15m' ? 3 : 5
   const swings: SwingPoint[] = []
   
   for (let i = lookback; i < candles.length - lookback; i++) {
@@ -1436,19 +1437,25 @@ Deno.serve(async (req) => {
         const atr = calculateATR(candles, 14)
         
         // Find patterns
-        const swings = findSwingPoints(candles)
+        const swings = findSwingPoints(candles, timeframe)
         const orderBlocks = findOrderBlocks(candles)
         const fvgs = findFVGs(candles)
         const trend = identifyTrend(ema50, ema200, candles.length - 1)
         const bos = detectBOS(candles, swings)
 
+        // Age-cap OBs/FVGs for 15m (1H = no cap, candles already span ~9d)
+        // 15m maxAge=50 candles ≈ 12.5 hours of relevance
+        const maxAge = timeframe === '15m' ? 50 : candles.length
+        const recentOBs = orderBlocks.filter(ob => ob.index >= candles.length - maxAge)
+        const recentFVGs = fvgs.filter(fvg => fvg.index >= candles.length - maxAge)
+
         // Analyze all setups
         const setups: (SignalSetup | null)[] = [
-          analyzeSetup1_SweepOB(candles, swings, orderBlocks, trend),
-          analyzeSetup2_FVGTrend(candles, fvgs, trend, rsi),
+          analyzeSetup1_SweepOB(candles, swings, recentOBs, trend),
+          analyzeSetup2_FVGTrend(candles, recentFVGs, trend, rsi),
           analyzeSetup3_BOSRetest(candles, swings, bos),
           analyzeSetup4_EMABounce(candles, ema50, ema200, trend, rsi),
-          analyzeSetup5_VolumeDivergence(candles, swings, orderBlocks, fvgs, rsi)
+          analyzeSetup5_VolumeDivergence(candles, swings, recentOBs, recentFVGs, rsi)
         ]
 
         // Find best setup (highest confidence)

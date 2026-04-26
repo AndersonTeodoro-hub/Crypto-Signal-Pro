@@ -2,8 +2,8 @@ name: Generate Trading Signals
 
 on:
   schedule:
-    # 15m timeframe analysis: once per hour at minute 5 (cost reduction)
-    - cron: '5 * * * *'
+    # 15m timeframe analysis: twice per hour at minutes 5 and 35
+    - cron: '5,35 * * * *'
     # 1H: Every hour at minute 2
     - cron: '2 * * * *'
   workflow_dispatch:
@@ -34,7 +34,7 @@ jobs:
         run: |
           if [ "${{ github.event.schedule }}" == "2 * * * *" ]; then
             echo "value=1H" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" == "5 * * * *" ]; then
+          elif [ "${{ github.event.schedule }}" == "5,35 * * * *" ]; then
             echo "value=15m" >> $GITHUB_OUTPUT
           else
             echo "value=${{ github.event.inputs.timeframe }}" >> $GITHUB_OUTPUT
