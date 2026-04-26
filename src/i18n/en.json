@@ -160,6 +160,7 @@
     "timeframe": "Timeframe",
     "signals": "Your Signals",
     "allPairs": "All pairs",
+    "allTimeframes": "All",
     "noSignals": "No signals available for this pair.",
     "newSignalsRealtime": "New signals will appear here in real-time.",
     "newSignal": "New Signal!",

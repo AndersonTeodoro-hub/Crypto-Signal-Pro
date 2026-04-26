@@ -27,7 +27,7 @@ export default function Dashboard() {
   const { effectivePlan, loading: planLoading, canAccessTimeframe, isFree, isAdmin } = useUserPlan();
   
   const [selectedPair, setSelectedPair] = useState<string | null>(null);
-  const [timeframe, setTimeframe] = useState<string>('1H');
+  const [timeframe, setTimeframe] = useState<string>('all');
   const [signals, setSignals] = useState<SignalWithPair[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -48,10 +48,10 @@ export default function Dashboard() {
         setSelectedPair(data.selected_pair_id);
         // Ensure the timeframe is accessible for the user's plan
         const savedTimeframe = data.timeframe;
-        if (canAccessTimeframe(savedTimeframe)) {
+        if (savedTimeframe === 'all' || canAccessTimeframe(savedTimeframe)) {
           setTimeframe(savedTimeframe);
         } else {
-          setTimeframe('1H'); // Default 1H (free trial — all timeframes unlocked)
+          setTimeframe('all'); // Default: all timeframes
         }
       }
       setLoading(false);
@@ -94,10 +94,13 @@ export default function Dashboard() {
           *,
           allowed_pairs (*)
         `)
-        .eq('timeframe', timeframe)
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(30);
+
+      if (timeframe !== 'all') {
+        query = query.eq('timeframe', timeframe);
+      }
 
       if (selectedPair) {
         query = query.eq('pair_id', selectedPair);
@@ -139,7 +142,7 @@ export default function Dashboard() {
             .eq('id', payload.new.id)
             .single();
 
-          if (data && data.timeframe === timeframe) {
+          if (data && (timeframe === 'all' || data.timeframe === timeframe)) {
             setSignals((prev) => [data as SignalWithPair, ...prev]);
 
             const signalData = data as SignalWithPair;
@@ -182,7 +185,7 @@ export default function Dashboard() {
   };
 
   const handleTimeframeChange = (value: string) => {
-    if (canAccessTimeframe(value)) {
+    if (value === 'all' || canAccessTimeframe(value)) {
       setTimeframe(value);
     } else {
       toast({
@@ -331,6 +334,9 @@ export default function Dashboard() {
                 </label>
                 <Tabs value={timeframe} onValueChange={handleTimeframeChange}>
                   <TabsList className="w-full">
+                    <TabsTrigger value="all" className="flex-1">
+                      {t('dashboard.allTimeframes')}
+                    </TabsTrigger>
                     <TabsTrigger
                       value="15m"
                       className="flex-1 relative"
