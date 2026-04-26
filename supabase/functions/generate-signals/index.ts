@@ -1031,16 +1031,16 @@ YOUR ROLE: Final quality gate before signals reach retail traders. You validate 
 TIMEFRAME RULES:
 
 15m (scalping):
-- SL range: 0.3%-1.5% from entry
-- Min R:R 1.5 at TP1
-- Last 5 candles must show directional momentum
+- SL range: 0.3%-2.0% from entry
+- Min R:R 1.3 at TP1
+- ATR must be > 0.15% (otherwise move is too small)
 - Volume spike on setup candle increases confidence
-- Avoid low-volume consolidation entries
+- Directional momentum on last 5 candles is a PLUS (scoring), not a requirement
 - Faster invalidation: if price doesn't move in 2-3 candles, setup weakens
 
 1H (intraday swing):
-- SL range: 0.5%-3% from entry
-- Min R:R 2.0 at TP1
+- SL range: 0.5%-4% from entry
+- Min R:R 1.5 at TP1
 - Clear market structure required (HH/HL or LH/LL)
 - EMA alignment with direction required
 - Volume confirmation on key candles preferred
@@ -1048,34 +1048,35 @@ TIMEFRAME RULES:
 HARD REJECT (any timeframe):
 - Price structure contradicts direction
 - Entry/SL/TP incoherent
-- R:R < 1.5 at TP1
-- Ranging market without clear bias
-- Counter-trend without reversal evidence
-- ATR too low for meaningful move
+- R:R < 1.3 at TP1
 
-CONFLUENCE SCORING (total 100):
-+15: Clean structure (HH/HL or LH/LL)
-+15: EMA50/200 aligned with direction
-+10: RSI supports (not extreme against)
-+10: Volume confirms setup candle
-+10: Price at key SMC level (OB/FVG/BOS)
-+10: ATR shows adequate volatility
-+10: Last 5 candles directional momentum
-+10: Clean R:R geometry
-+10: No S/R blocking TP1
+NOTE: Ranging markets WITH a clear SMC level (OB/FVG/BOS) are tradeable — score based on confluence, do not auto-reject. Counter-trend trades with explicit reversal evidence (BOS, sweep, divergence) are also acceptable.
+
+CONFLUENCE SCORING (total 80):
++12: Clean structure (HH/HL or LH/LL)
++12: EMA50/200 aligned with direction
++8:  RSI supports (not extreme against)
++8:  Volume confirms setup candle
++8:  Price at key SMC level (OB/FVG/BOS)
++8:  ATR shows adequate volatility
++8:  Last 5 candles directional momentum
++8:  Clean R:R geometry
++8:  No S/R blocking TP1
 
 GRADING:
-A+ (85-100): Exceptional, high probability
-A (70-84): Strong, good to trade
-B+ (60-69): Acceptable, trade with discipline
-REJECT (<60): Insufficient confluence
+A+ (70-80): Exceptional, high probability
+A  (55-69): Strong, good to trade
+B+ (45-54): Acceptable, trade with discipline
+REJECT (<45): Insufficient confluence
 
-Grade B is ELIMINATED. 60+ or REJECT. No marginal trades.
+Grade B is ELIMINATED. 45+ or REJECT. No marginal trades.
 
 When REJECTING: reason (2 sentences), riskNotes, improvements, suggestedAdjustments
 When APPROVING: reason (2 sentences), riskNotes, improvements
 
-Respond ONLY via analyze_signal. English only.`
+Respond ONLY via analyze_signal. English only.
+
+Maximum confidence value is 80 (matching the scoring total). Never return confidence above 80.`
 
 async function confirmWithAI(
   pair: string,
@@ -1152,8 +1153,8 @@ Score confluence and respond via analyze_signal.`
                 confidence: {
                   type: 'integer',
                   minimum: 0,
-                  maximum: 100,
-                  description: 'Final confidence score (0-100)'
+                  maximum: 80,
+                  description: 'Final confidence score (0-80)'
                 },
                 grade: {
                   type: 'string',
