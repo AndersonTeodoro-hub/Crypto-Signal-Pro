@@ -123,11 +123,22 @@ const FETCH_TIMEOUT = 8000 // 8 seconds
 const MAX_RETRIES = 2
 const RETRY_DELAYS = [400, 900] // ms
 
+// Symbols where the OKX listing differs from the canonical {BASE}USDT format.
+// e.g. RNDR was rebranded to RENDER on OKX.
+const OKX_SYMBOL_OVERRIDES: Record<string, string> = {
+  'RNDRUSDT': 'RENDER-USDT'
+}
+
 // Convert symbol formats: BTCUSDT -> BTC-USDT, ETHUSDT -> ETH-USDT
 function convertToOKXSymbol(symbol: string): string {
   // Remove any existing separators first
   const cleanSymbol = symbol.replace(/[/-]/g, '')
-  
+
+  // Check overrides first
+  if (OKX_SYMBOL_OVERRIDES[cleanSymbol]) {
+    return OKX_SYMBOL_OVERRIDES[cleanSymbol]
+  }
+
   // List of known quote currencies (in priority order)
   const quotes = ['USDT', 'USDC', 'BUSD', 'USD', 'BTC', 'ETH']
   
@@ -629,13 +640,13 @@ function detectBOS(candles: Candle[], swings: SwingPoint[]): { type: 'bullish' |
 
 // ============= SETUPS =============
 
-function analyzeSetup1_SweepOB(candles: Candle[], swings: SwingPoint[], orderBlocks: OrderBlock[]): SignalSetup | null {
+function analyzeSetup1_SweepOB(candles: Candle[], swings: SwingPoint[], orderBlocks: OrderBlock[], trend: string): SignalSetup | null {
   const sweep = detectLiquiditySweep(candles, swings)
   if (!sweep) return null
-  
+
   const lastCandle = candles[candles.length - 1]
   const price = lastCandle.close
-  
+
   // Find nearest order block
   const relevantOBs = orderBlocks.filter(ob => {
     if (sweep.type === 'high') {
@@ -646,17 +657,23 @@ function analyzeSetup1_SweepOB(candles: Candle[], swings: SwingPoint[], orderBlo
       return ob.type === 'bullish' && ob.high < price * 1.01
     }
   }).slice(-1)
-  
+
   if (relevantOBs.length === 0) return null
-  
+
   const ob = relevantOBs[0]
-  
+
+  // Counter-trend penalty: SHORT in bullish or LONG in bearish reduces confidence
+  const isCounterTrend =
+    (sweep.type === 'high' && trend === 'bullish') ||
+    (sweep.type === 'low' && trend === 'bearish')
+  const confidence = isCounterTrend ? 60 : 75
+
   if (sweep.type === 'low') {
     // LONG setup
     const entry = (ob.high + ob.low) / 2
     const sl = ob.low * 0.995
     const risk = entry - sl
-    
+
     return {
       setup: 'SWEEP_OB',
       direction: 'LONG',
@@ -665,9 +682,9 @@ function analyzeSetup1_SweepOB(candles: Candle[], swings: SwingPoint[], orderBlo
       takeProfit1: entry + risk,
       takeProfit2: entry + risk * 2,
       takeProfit3: entry + risk * 3,
-      confidence: 75,
-      analysis: `Liquidity Sweep detectado em swing low (${sweep.swing.price.toFixed(2)}). Order Block bullish identificado entre ${ob.low.toFixed(2)} - ${ob.high.toFixed(2)}. Aguardando retorno ao OB para entrada LONG.`,
-      meta: { sweep, orderBlock: ob }
+      confidence,
+      analysis: `Liquidity Sweep detectado em swing low (${sweep.swing.price.toFixed(2)})${isCounterTrend ? ' [counter-trend]' : ''}. Order Block bullish identificado entre ${ob.low.toFixed(2)} - ${ob.high.toFixed(2)}. Aguardando retorno ao OB para entrada LONG.`,
+      meta: { sweep, orderBlock: ob, isCounterTrend }
     }
   } else {
     // SHORT setup
@@ -683,9 +700,9 @@ function analyzeSetup1_SweepOB(candles: Candle[], swings: SwingPoint[], orderBlo
       takeProfit1: entry - risk,
       takeProfit2: entry - risk * 2,
       takeProfit3: entry - risk * 3,
-      confidence: 75,
-      analysis: `Liquidity Sweep detectado em swing high (${sweep.swing.price.toFixed(2)}). Order Block bearish identificado entre ${ob.low.toFixed(2)} - ${ob.high.toFixed(2)}. Aguardando retorno ao OB para entrada SHORT.`,
-      meta: { sweep, orderBlock: ob }
+      confidence,
+      analysis: `Liquidity Sweep detectado em swing high (${sweep.swing.price.toFixed(2)})${isCounterTrend ? ' [counter-trend]' : ''}. Order Block bearish identificado entre ${ob.low.toFixed(2)} - ${ob.high.toFixed(2)}. Aguardando retorno ao OB para entrada SHORT.`,
+      meta: { sweep, orderBlock: ob, isCounterTrend }
     }
   }
 }
@@ -1427,7 +1444,7 @@ Deno.serve(async (req) => {
 
         // Analyze all setups
         const setups: (SignalSetup | null)[] = [
-          analyzeSetup1_SweepOB(candles, swings, orderBlocks),
+          analyzeSetup1_SweepOB(candles, swings, orderBlocks, trend),
           analyzeSetup2_FVGTrend(candles, fvgs, trend, rsi),
           analyzeSetup3_BOSRetest(candles, swings, bos),
           analyzeSetup4_EMABounce(candles, ema50, ema200, trend, rsi),
