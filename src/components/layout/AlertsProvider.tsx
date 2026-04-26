@@ -1,9 +1,9 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserPlan } from '@/hooks/useUserPlan';
 import { useSignalAlerts } from '@/hooks/useSignalAlerts';
-import { getAllowedPairSymbols } from '@/lib/planPairs';
-import type { PlanType } from '@/lib/plans';
+import { supabase } from '@/integrations/supabase/client';
+import { PLANS, type PlanType } from '@/lib/plans';
 
 interface AlertsContextValue {
   isActive: boolean;
@@ -22,11 +22,27 @@ interface AlertsProviderProps {
 export function AlertsProvider({ children }: AlertsProviderProps) {
   const { user } = useAuth();
   const { effectivePlan, loading } = useUserPlan();
+  const [allowedSymbols, setAllowedSymbols] = useState<string[] | null>(null);
 
-  // Get allowed symbols for the user's plan
-  const allowedSymbols = getAllowedPairSymbols(effectivePlan as PlanType);
+  // Fetch top-N active pairs for the user's plan (Pro = null = unlimited)
+  useEffect(() => {
+    if (loading) return;
+    if (effectivePlan === 'pro') {
+      setAllowedSymbols(null);
+      return;
+    }
+    const max = PLANS[effectivePlan as PlanType].pairs;
+    supabase
+      .from('allowed_pairs')
+      .select('symbol')
+      .eq('is_active', true)
+      .order('rank')
+      .limit(max)
+      .then(({ data }) => {
+        setAllowedSymbols(data?.map(p => p.symbol) ?? []);
+      });
+  }, [effectivePlan, loading]);
 
-  // Initialize signal alerts subscription
   const { isActive } = useSignalAlerts({
     allowedSymbols,
     enabled: !!user && !loading,

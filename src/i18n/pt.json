@@ -426,6 +426,8 @@
     "lastSignals": "Sinais Recentes",
     "viewHistory": "Ver Histórico",
     "stopLoss": "Stop Loss",
+    "pair": "par",
+    "pairs": "pares",
     "noOpenSignals": "Nenhum sinal aberto",
     "noOpenSignalsHint15m": "Nenhum sinal 15m ativo agora. Tente 1H ou veja todos.",
     "noOpenSignalsHint1H": "Nenhum sinal 1H ativo agora. Tente 15m ou veja todos.",

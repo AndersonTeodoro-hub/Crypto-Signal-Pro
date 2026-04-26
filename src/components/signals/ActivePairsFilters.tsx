@@ -50,7 +50,7 @@ export function ActivePairsFilters({
         </div>
         
         <Badge variant="secondary" className="self-start md:self-center">
-          {resultCount} {resultCount === 1 ? 'par' : 'pares'}
+          {resultCount} {resultCount === 1 ? t('activePairs.pair') : t('activePairs.pairs')}
         </Badge>
       </div>
 

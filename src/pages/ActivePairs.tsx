@@ -12,8 +12,7 @@ import { AlertsDropdown } from '@/components/alerts/AlertsDropdown';
 import { ActivePairCard, ActivePairCardSkeleton } from '@/components/signals/ActivePairCard';
 import { ActivePairsFilters } from '@/components/signals/ActivePairsFilters';
 import { PairDetailModal } from '@/components/signals/PairDetailModal';
-import { getAllowedPairSymbols } from '@/lib/planPairs';
-import type { PlanType } from '@/lib/plans';
+import { PLANS, type PlanType } from '@/lib/plans';
 
 interface Signal {
   id: string;
@@ -93,19 +92,12 @@ export default function ActivePairs() {
   }, []);
 
   // Build pairs with signals based on plan
+  // Pro = all active pairs; others = top-N by rank where N = PLANS[plan].pairs
+  // (allPairs already ordered by rank ASC from the DB query)
   const pairsWithSignals = useMemo(() => {
-    const allowedSymbols = getAllowedPairSymbols(effectivePlan as PlanType);
-    
-    // Filter pairs based on plan
-    let filteredPairs = allPairs;
-    if (allowedSymbols !== null) {
-      filteredPairs = allPairs.filter(p => allowedSymbols.includes(p.symbol));
-    } else {
-      // Pro gets up to 50 pairs
-      filteredPairs = allPairs.slice(0, 50);
-    }
+    const max = PLANS[effectivePlan as PlanType].pairs;
+    const filteredPairs = effectivePlan === 'pro' ? allPairs : allPairs.slice(0, max);
 
-    // Build pair objects with their signals
     return filteredPairs.map(pair => {
       const signal15m = signals.find(s => s.pair_id === pair.id && s.timeframe === '15m') || null;
       const signal1H = signals.find(s => s.pair_id === pair.id && s.timeframe === '1H') || null;

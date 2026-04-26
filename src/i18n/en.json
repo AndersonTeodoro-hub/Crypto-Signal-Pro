@@ -420,6 +420,8 @@
     "lastSignals": "Recent Signals",
     "viewHistory": "View History",
     "stopLoss": "Stop Loss",
+    "pair": "pair",
+    "pairs": "pairs",
     "noOpenSignals": "No open signals",
     "noOpenSignalsHint15m": "No active 15m signals right now. Try 1H or view all.",
     "noOpenSignalsHint1H": "No active 1H signals right now. Try 15m or view all.",
